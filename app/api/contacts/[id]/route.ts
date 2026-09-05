@@ -27,6 +27,35 @@ export async function DELETE(_req: Request, ctx: { params: Promise<{ id: string 
   const { error } = await requireSession(["ADMIN"]);
   if (error) return error!;
   const { id } = await ctx.params;
-  await db.contact.delete({ where: { id } }).catch(() => null);
-  return NextResponse.json({ ok: true });
+
+  const contact = await db.contact.findUnique({
+    where: { id },
+    include: {
+      _count: {
+        select: {
+          customerInvoices: true,
+          vendorBills: true,
+          salesOrders: true,
+          purchaseOrders: true,
+          payments: true,
+        },
+      },
+    },
+  });
+
+  if (!contact) return apiError("Contact not found", 404);
+
+  const { customerInvoices, vendorBills, salesOrders, purchaseOrders, payments } = contact._count;
+  const totalRefs = customerInvoices + vendorBills + salesOrders + purchaseOrders + payments;
+
+  if (totalRefs > 0) {
+    return apiError("Cannot delete contact with existing financial documents or orders", 400);
+  }
+
+  try {
+    await db.contact.delete({ where: { id } });
+    return NextResponse.json({ ok: true });
+  } catch (err: any) {
+    return apiError(err.message || "Failed to delete contact", 400);
+  }
 }

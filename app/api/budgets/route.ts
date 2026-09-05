@@ -15,41 +15,41 @@ export async function GET() {
   const analytics = await db.analytic.findMany();
   const analyticsMap = Object.fromEntries(analytics.map((a) => [a.id, a]));
 
-  const enrichedBudgets = [];
-  for (const b of budgets) {
-    if (b.status === "CONFIRMED" || b.status === "REVISED") {
-      await computeBudgetAchieved(b.id).catch(() => null);
-    }
-    const updated = await db.budget.findUnique({
-      where: { id: b.id },
-      include: { lines: true },
-    });
+  const enrichedBudgets = await Promise.all(
+    budgets.map(async (b) => {
+      if (b.status === "CONFIRMED" || b.status === "REVISED") {
+        await computeBudgetAchieved(b.id).catch(() => null);
+      }
+      const [updated, revisionOf, revisedWith] = await Promise.all([
+        db.budget.findUnique({
+          where: { id: b.id },
+          include: { lines: true },
+        }),
+        b.revisionOfId
+          ? db.budget.findUnique({
+              where: { id: b.revisionOfId },
+              select: { id: true, name: true, status: true },
+            })
+          : Promise.resolve(null),
+        db.budget.findFirst({
+          where: { revisionOfId: b.id },
+          select: { id: true, name: true, status: true },
+        }),
+      ]);
 
-    let revisionOf = null;
-    if (b.revisionOfId) {
-      revisionOf = await db.budget.findUnique({
-        where: { id: b.revisionOfId },
-        select: { id: true, name: true, status: true },
-      });
-    }
+      const lines = (updated?.lines || []).map((l) => ({
+        ...l,
+        analyticName: analyticsMap[l.analyticId]?.name || l.analyticId,
+      }));
 
-    const revisedWith = await db.budget.findFirst({
-      where: { revisionOfId: b.id },
-      select: { id: true, name: true, status: true },
-    });
-
-    const lines = (updated?.lines || []).map((l) => ({
-      ...l,
-      analyticName: analyticsMap[l.analyticId]?.name || l.analyticId,
-    }));
-
-    enrichedBudgets.push({
-      ...updated,
-      lines,
-      revisionOf,
-      revisedWith,
-    });
-  }
+      return {
+        ...updated,
+        lines,
+        revisionOf,
+        revisedWith,
+      };
+    })
+  );
 
   return NextResponse.json({ budgets: enrichedBudgets, analytics });
 }

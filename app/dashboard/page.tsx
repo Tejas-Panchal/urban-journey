@@ -169,6 +169,12 @@ export default function Dashboard() {
           >
             <CreditCardIcon className="h-3.5 w-3.5" /> Record Payment
           </Link>
+          <Link
+            href="/reports/aging"
+            className="btn-outline text-xs flex items-center gap-1.5 py-2 px-3.5 border-amber-500/30 text-amber-600 dark:text-amber-400 bg-amber-500/10 hover:bg-amber-500/20"
+          >
+            <ChartBarIcon className="h-3.5 w-3.5" /> Aging Report
+          </Link>
           <button
             onClick={loadData}
             className="rounded-lg border border-[var(--border-color)] p-2 text-xs hover:bg-[var(--badge-bg)] transition-colors"
@@ -653,7 +659,7 @@ export default function Dashboard() {
               return linkedInv ? (
                 <div className="p-3 rounded-lg bg-sky-500/10 border border-sky-500/30 flex items-center justify-between">
                   <div className="flex items-center gap-2">
-                    <span className="text-sky-400 font-bold">📄 Linked Customer Invoice:</span>
+                    <span className="text-sky-400 font-bold">Linked Customer Invoice:</span>
                     <span className="font-mono font-bold text-[var(--text-main)] text-xs">{linkedInv.no}</span>
                     <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-sky-500/20 text-sky-300 uppercase">
                       {linkedInv.status}
@@ -669,7 +675,7 @@ export default function Dashboard() {
               return linkedPo ? (
                 <div className="p-3 rounded-lg bg-amber-500/10 border border-amber-500/30 flex items-center justify-between">
                   <div className="flex items-center gap-2">
-                    <span className="text-amber-400 font-bold">📄 Created from Purchase Order:</span>
+                    <span className="text-amber-400 font-bold">Created from Purchase Order:</span>
                     <span className="font-mono font-bold text-[var(--text-main)] text-xs">{linkedPo.no}</span>
                   </div>
                   <a href="/purchase/orders" className="text-xs font-bold text-amber-400 hover:underline">View PO →</a>
@@ -682,7 +688,7 @@ export default function Dashboard() {
               return linkedSo ? (
                 <div className="p-3 rounded-lg bg-sky-500/10 border border-sky-500/30 flex items-center justify-between">
                   <div className="flex items-center gap-2">
-                    <span className="text-sky-400 font-bold">📄 Created from Sales Order:</span>
+                    <span className="text-sky-400 font-bold">Created from Sales Order:</span>
                     <span className="font-mono font-bold text-[var(--text-main)] text-xs">{linkedSo.no}</span>
                   </div>
                   <a href="/sales/orders" className="text-xs font-bold text-sky-400 hover:underline">View SO →</a>

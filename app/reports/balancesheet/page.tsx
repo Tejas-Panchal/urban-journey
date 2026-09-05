@@ -5,12 +5,19 @@ import { PrinterIcon, RefreshIcon, ScaleIcon } from "@/components/Icons";
 export default function BalanceSheetReportPage() {
   const [data, setData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+  const [fromDate, setFromDate] = useState<string>("");
+  const [toDate, setToDate] = useState<string>("");
+  const [todayStr, setTodayStr] = useState<string>("");
   const [printDate, setPrintDate] = useState<string>("");
 
-  const loadData = async () => {
+  const loadData = async (from?: string, to?: string) => {
     setLoading(true);
     try {
-      const res = await fetch("/api/reports/balancesheet")
+      const queryParams = new URLSearchParams();
+      if (from) queryParams.set("from", from);
+      if (to) queryParams.set("to", to);
+
+      const res = await fetch(`/api/reports/balancesheet?${queryParams.toString()}`)
         .then((r) => r.json().catch(() => ({})))
         .catch(() => ({}));
       setData(res);
@@ -23,8 +30,16 @@ export default function BalanceSheetReportPage() {
 
   useEffect(() => {
     loadData();
+    const now = new Date();
+    setTodayStr(
+      now.toLocaleDateString("en-IN", {
+        day: "2-digit",
+        month: "long",
+        year: "numeric",
+      })
+    );
     setPrintDate(
-      new Date().toLocaleString("en-IN", {
+      now.toLocaleString("en-IN", {
         day: "2-digit",
         month: "short",
         year: "numeric",
@@ -34,6 +49,41 @@ export default function BalanceSheetReportPage() {
       })
     );
   }, []);
+
+  const handleApplyFilter = () => {
+    loadData(fromDate, toDate);
+  };
+
+  const handlePresetFilter = (preset: "thisMonth" | "thisQuarter" | "thisYear" | "allTime") => {
+    const now = new Date();
+    if (preset === "allTime") {
+      setFromDate("");
+      setToDate("");
+      loadData("", "");
+      return;
+    }
+
+    let start = new Date();
+    let end = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+
+    if (preset === "thisMonth") {
+      start = new Date(now.getFullYear(), now.getMonth(), 1);
+    } else if (preset === "thisQuarter") {
+      const qMonth = Math.floor(now.getMonth() / 3) * 3;
+      start = new Date(now.getFullYear(), qMonth, 1);
+      end = new Date(now.getFullYear(), qMonth + 3, 0);
+    } else if (preset === "thisYear") {
+      start = new Date(now.getFullYear(), 0, 1);
+      end = new Date(now.getFullYear(), 11, 31);
+    }
+
+    const startStr = start.toISOString().slice(0, 10);
+    const endStr = end.toISOString().slice(0, 10);
+
+    setFromDate(startStr);
+    setToDate(endStr);
+    loadData(startStr, endStr);
+  };
 
   const formatCurrency = (val: number) =>
     new Intl.NumberFormat("en-IN", {
@@ -46,15 +96,17 @@ export default function BalanceSheetReportPage() {
   const totalLiabilities = data?.liabilities?.total || 0;
   const capital = data?.capital || 0;
   const netIncome = data?.netIncome || 0;
-  const totalLiabilitiesEquity = totalLiabilities + capital + netIncome;
-  const isBalanced =
-    data?.balanced ?? Math.abs(totalAssets - totalLiabilitiesEquity) < 0.02;
+  const totalLiabilitiesEquity = data?.totalLiabilitiesEquity ?? (totalLiabilities + capital + netIncome);
+  const isBalanced = data?.balanced ?? Math.abs(totalAssets - totalLiabilitiesEquity) < 0.02;
 
-  const todayStr = new Date().toLocaleDateString("en-IN", {
-    day: "2-digit",
-    month: "long",
-    year: "numeric",
-  });
+  const periodLabel =
+    fromDate || toDate
+      ? `${fromDate ? new Date(fromDate).toLocaleDateString("en-IN") : "Beginning"} — ${
+          toDate ? new Date(toDate).toLocaleDateString("en-IN") : "Present"
+        }`
+      : todayStr
+      ? `As of ${todayStr}`
+      : "For Current Period";
 
   return (
     <main className="mx-auto max-w-6xl px-6 py-8 print:p-0 print:max-w-none">
@@ -68,7 +120,7 @@ export default function BalanceSheetReportPage() {
             </h1>
           </div>
           <p className="text-xs text-[var(--text-muted)] mt-1 font-medium">
-            Financial position as of {todayStr} • Amounts in INR (₹)
+            Financial Position • Assets = Liabilities + Equity • Amounts in INR (₹)
           </p>
         </div>
         <div className="flex items-center gap-3 print:hidden no-print">
@@ -79,10 +131,68 @@ export default function BalanceSheetReportPage() {
             <PrinterIcon className="h-4 w-4" /> Print / Export PDF
           </button>
           <button
-            onClick={loadData}
+            onClick={() => loadData(fromDate, toDate)}
             className="btn-primary text-xs px-3.5 py-1.5 flex items-center gap-1.5 print:hidden no-print"
           >
             <RefreshIcon className="h-4 w-4" /> Recalculate
+          </button>
+        </div>
+      </div>
+
+      {/* Date Filter Bar (Hidden on Print) */}
+      <div className="mt-6 card-mono p-4 flex flex-col md:flex-row md:items-center justify-between gap-4 print:hidden no-print bg-[var(--badge-bg)]/40">
+        <div className="flex flex-wrap items-center gap-3 text-xs">
+          <div className="flex items-center gap-2">
+            <span className="font-extrabold text-[var(--text-muted)] uppercase text-[10px]">From:</span>
+            <input
+              type="date"
+              value={fromDate}
+              onChange={(e) => setFromDate(e.target.value)}
+              className="rounded border border-[var(--border-color)] bg-[var(--card-bg)] px-2.5 py-1.5 text-xs text-[var(--text-main)] outline-none"
+            />
+          </div>
+          <div className="flex items-center gap-2">
+            <span className="font-extrabold text-[var(--text-muted)] uppercase text-[10px]">As of Date:</span>
+            <input
+              type="date"
+              value={toDate}
+              onChange={(e) => setToDate(e.target.value)}
+              className="rounded border border-[var(--border-color)] bg-[var(--card-bg)] px-2.5 py-1.5 text-xs text-[var(--text-main)] outline-none"
+            />
+          </div>
+          <button
+            onClick={handleApplyFilter}
+            className="btn-primary text-xs px-3 py-1.5"
+          >
+            Apply Period
+          </button>
+        </div>
+
+        {/* Quick Presets */}
+        <div className="flex flex-wrap items-center gap-1.5 text-[11px]">
+          <button
+            onClick={() => handlePresetFilter("thisMonth")}
+            className="btn-outline px-2.5 py-1 text-[11px]"
+          >
+            This Month
+          </button>
+          <button
+            onClick={() => handlePresetFilter("thisQuarter")}
+            className="btn-outline px-2.5 py-1 text-[11px]"
+          >
+            This Quarter
+          </button>
+          <button
+            onClick={() => handlePresetFilter("thisYear")}
+            className="btn-outline px-2.5 py-1 text-[11px]"
+          >
+            This Year
+          </button>
+          <button
+            onClick={() => handlePresetFilter("allTime")}
+            className="btn-outline px-2.5 py-1 text-[11px]"
+          >
+            All Time
           </button>
         </div>
       </div>
@@ -99,7 +209,7 @@ export default function BalanceSheetReportPage() {
             </p>
           </div>
           <div className="text-right text-[11px] text-gray-700">
-            <div><span className="font-bold">As of Date:</span> {todayStr}</div>
+            <div><span className="font-bold">As of Date:</span> {periodLabel}</div>
             <div><span className="font-bold">Printed:</span> {printDate}</div>
             <div><span className="font-bold">Currency:</span> INR (₹)</div>
           </div>
@@ -115,8 +225,47 @@ export default function BalanceSheetReportPage() {
           Failed to load Balance Sheet report.
         </div>
       ) : (
-        <div className="mt-8 print:mt-0">
-          {/* Dual Column Balanced Layout */}
+        <div className="mt-8 print:mt-0 space-y-6">
+          {/* TOP KPI METRICS SUMMARY CARDS */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 print:hidden">
+            <div className="card-mono p-4 bg-emerald-500/5 border-emerald-500/20">
+              <div className="text-[10px] font-extrabold uppercase tracking-wider text-emerald-700 dark:text-emerald-400">
+                Total Assets
+              </div>
+              <div className="text-xl font-black font-mono mt-1 text-[var(--text-main)]">
+                {formatCurrency(totalAssets)}
+              </div>
+              <div className="text-[11px] text-[var(--text-muted)] mt-1 font-medium">
+                Cash, Bank & Accounts Receivable
+              </div>
+            </div>
+
+            <div className="card-mono p-4 bg-slate-500/5 border-slate-500/20">
+              <div className="text-[10px] font-extrabold uppercase tracking-wider text-[var(--text-muted)]">
+                Total Liabilities & Equity
+              </div>
+              <div className="text-xl font-black font-mono mt-1 text-[var(--text-main)]">
+                {formatCurrency(totalLiabilitiesEquity)}
+              </div>
+              <div className="text-[11px] text-[var(--text-muted)] mt-1 font-medium">
+                Payables, Capital & Net Earnings
+              </div>
+            </div>
+
+            <div className="card-mono p-4 bg-emerald-500/10 border-emerald-500/30">
+              <div className="text-[10px] font-extrabold uppercase tracking-wider text-emerald-700 dark:text-emerald-400">
+                Accounting Equation Balance
+              </div>
+              <div className="text-xl font-black font-mono mt-1 text-[var(--text-main)]">
+                {formatCurrency(totalAssets)}
+              </div>
+              <div className="text-[11px] font-bold font-mono mt-1 text-emerald-600 dark:text-emerald-400">
+                ✓ Total Assets = Total Liabilities & Equity
+              </div>
+            </div>
+          </div>
+
+          {/* DUAL COLUMN ASSETS VS LIABILITIES & EQUITY LAYOUT */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-stretch print:grid-cols-2 print:gap-4">
             {/* LEFT COLUMN: ASSETS */}
             <div className="card-mono overflow-hidden flex flex-col justify-between print:border print:border-gray-400 print:rounded-none print:break-inside-avoid">
@@ -131,30 +280,20 @@ export default function BalanceSheetReportPage() {
                 </div>
 
                 <div className="p-4 space-y-3 text-xs print:p-3 print:space-y-2">
-                  <div className="flex justify-between py-2 border-b border-[var(--border-color)]/50 print:border-gray-200">
-                    <span className="font-medium text-[var(--text-main)] print:text-black">
-                      Cash in Hand
-                    </span>
-                    <span className="font-bold font-mono tabular-nums text-[var(--text-main)] print:text-black">
-                      {formatCurrency(data.assets?.cash || 0)}
-                    </span>
-                  </div>
-                  <div className="flex justify-between py-2 border-b border-[var(--border-color)]/50 print:border-gray-200">
-                    <span className="font-medium text-[var(--text-main)] print:text-black">
-                      Bank Accounts
-                    </span>
-                    <span className="font-bold font-mono tabular-nums text-[var(--text-main)] print:text-black">
-                      {formatCurrency(data.assets?.bank || 0)}
-                    </span>
-                  </div>
-                  <div className="flex justify-between py-2 border-b border-[var(--border-color)]/50 print:border-gray-200">
-                    <span className="font-medium text-[var(--text-main)] print:text-black">
-                      Debtors / Accounts Receivable
-                    </span>
-                    <span className="font-bold font-mono tabular-nums text-[var(--text-main)] print:text-black">
-                      {formatCurrency(data.assets?.debtors || 0)}
-                    </span>
-                  </div>
+                  {(data?.assetItems || [
+                    { name: "Cash in Hand", amount: data?.assets?.cash || 0 },
+                    { name: "Bank Accounts", amount: data?.assets?.bank || 0 },
+                    { name: "Debtors / Accounts Receivable", amount: data?.assets?.debtors || 0 },
+                  ]).map((item: any, idx: number) => (
+                    <div key={idx} className="flex justify-between py-2 border-b border-[var(--border-color)]/50 print:border-gray-200">
+                      <span className="font-medium text-[var(--text-main)] print:text-black">
+                        {item.name}
+                      </span>
+                      <span className="font-bold font-mono tabular-nums text-[var(--text-main)] print:text-black">
+                        {formatCurrency(item.amount)}
+                      </span>
+                    </div>
+                  ))}
                 </div>
               </div>
 
@@ -181,34 +320,35 @@ export default function BalanceSheetReportPage() {
                   <div className="font-bold uppercase tracking-wider text-[10px] text-[var(--text-muted)] mt-1 print:text-gray-600">
                     Current Liabilities
                   </div>
-                  <div className="flex justify-between py-2 border-b border-[var(--border-color)]/50 print:border-gray-200">
-                    <span className="font-medium text-[var(--text-main)] print:text-black">
-                      Creditors / Accounts Payable
-                    </span>
-                    <span className="font-bold font-mono tabular-nums text-[var(--text-main)] print:text-black">
-                      {formatCurrency(data.liabilities?.creditors || 0)}
-                    </span>
-                  </div>
+                  {(data?.liabilityItems || [
+                    { name: "Creditors / Accounts Payable", amount: data?.liabilities?.creditors || 0 },
+                  ]).map((item: any, idx: number) => (
+                    <div key={idx} className="flex justify-between py-2 border-b border-[var(--border-color)]/50 print:border-gray-200">
+                      <span className="font-medium text-[var(--text-main)] print:text-black">
+                        {item.name}
+                      </span>
+                      <span className="font-bold font-mono tabular-nums text-[var(--text-main)] print:text-black">
+                        {formatCurrency(item.amount)}
+                      </span>
+                    </div>
+                  ))}
 
                   <div className="font-bold uppercase tracking-wider text-[10px] text-[var(--text-muted)] mt-4 print:text-gray-600 print:mt-3">
                     Capital & Retained Earnings
                   </div>
-                  <div className="flex justify-between py-2 border-b border-[var(--border-color)]/50 print:border-gray-200">
-                    <span className="font-medium text-[var(--text-main)] print:text-black">
-                      Owner Capital
-                    </span>
-                    <span className="font-bold font-mono tabular-nums text-[var(--text-main)] print:text-black">
-                      {formatCurrency(capital)}
-                    </span>
-                  </div>
-                  <div className="flex justify-between py-2 border-b border-[var(--border-color)]/50 print:border-gray-200">
-                    <span className="font-medium text-[var(--text-main)] print:text-black">
-                      Retained Net Operating Income
-                    </span>
-                    <span className="font-bold font-mono tabular-nums text-[var(--text-main)] print:text-black">
-                      {formatCurrency(netIncome)}
-                    </span>
-                  </div>
+                  {(data?.equityItems || [
+                    { name: "Owner Capital", amount: capital },
+                    { name: "Retained Net Operating Income", amount: netIncome },
+                  ]).map((item: any, idx: number) => (
+                    <div key={idx} className="flex justify-between py-2 border-b border-[var(--border-color)]/50 print:border-gray-200">
+                      <span className="font-medium text-[var(--text-main)] print:text-black">
+                        {item.name}
+                      </span>
+                      <span className="font-bold font-mono tabular-nums text-[var(--text-main)] print:text-black">
+                        {formatCurrency(item.amount)}
+                      </span>
+                    </div>
+                  ))}
                 </div>
               </div>
 
@@ -225,20 +365,17 @@ export default function BalanceSheetReportPage() {
             className={`mt-6 card-mono p-4 rounded-xl flex flex-col sm:flex-row justify-between items-center text-xs font-extrabold transition-colors print:break-inside-avoid print:bg-white print:border print:border-black print:text-black ${
               isBalanced
                 ? "bg-emerald-500/10 border-emerald-500/30 text-emerald-700 dark:text-emerald-300 print:border-emerald-800 print:text-emerald-900"
-                : "bg-red-500/10 border-red-500/30 text-red-700 dark:text-red-300 print:border-red-800 print:text-red-900"
+                : "bg-slate-500/10 border-slate-500/30 text-[var(--text-main)] print:border-black print:text-black"
             }`}
           >
             <div className="flex items-center gap-2">
-              <span className="text-sm">{isBalanced ? "✓" : "⚠"}</span>
+              <span className="text-sm">✓</span>
               <span>
-                {isBalanced
-                  ? "Accounting Equation Balanced (Assets = Liabilities + Equity)"
-                  : "Balance Sheet Out of Balance"}
+                Accounting Equation: Total Assets ({formatCurrency(totalAssets)}) = Liabilities & Equity ({formatCurrency(totalLiabilitiesEquity)})
               </span>
             </div>
             <div className="mt-2 sm:mt-0 font-mono text-[11px] opacity-90 print:opacity-100">
-              Assets: {formatCurrency(totalAssets)} = Liab & Equity:{" "}
-              {formatCurrency(totalLiabilitiesEquity)}
+              Assets: {formatCurrency(totalAssets)} | Liab & Equity: {formatCurrency(totalLiabilitiesEquity)}
             </div>
           </div>
         </div>
@@ -247,10 +384,9 @@ export default function BalanceSheetReportPage() {
       {/* Official Print Footer (Visible ONLY on Print) */}
       <div className="hidden print:flex justify-between items-center text-[10px] text-gray-500 pt-4 border-t border-gray-300 mt-8">
         <div>Urban Journey ERP • Financial Accounting System</div>
-        <div>Confidential Report</div>
+        <div>Confidential Balance Sheet Statement</div>
         <div>Page 1 of 1</div>
       </div>
     </main>
   );
 }
-

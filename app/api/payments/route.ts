@@ -7,8 +7,44 @@ import { postJournal, getAccountIdByName } from "@/lib/accounting";
 export async function GET() {
   const { error, session } = await requireSession(["ADMIN", "ACCOUNTANT", "CONTACT"]);
   if (error || !session) return error!;
-  const payments = await db.payment.findMany({ include: { partner: true }, orderBy: { createdAt: "desc" }, take: 200 });
-  return NextResponse.json({ payments });
+
+  const wherePartner = session.role === "CONTACT" && session.contactId ? { partnerId: session.contactId } : {};
+
+  const payments = await db.payment.findMany({
+    where: wherePartner,
+    include: {
+      partner: true,
+      invoice: { select: { id: true, no: true, invRef: true, due: true, total: true } },
+      bill: { select: { id: true, no: true, billRef: true, due: true, subtotal: true } },
+    },
+    orderBy: { createdAt: "desc" },
+    take: 200,
+  });
+
+  // Fetch open unpaid invoices & bills for registering new payments
+  const openInvoices = await db.customerInvoice.findMany({
+    where: {
+      status: { in: ["CONFIRMED", "PARTIAL"] },
+      due: { gt: 0 },
+      ...(session.role === "CONTACT" && session.contactId ? { customerId: session.contactId } : {}),
+    },
+    include: { customer: true },
+    orderBy: { createdAt: "desc" },
+  });
+
+  const openBills = await db.vendorBill.findMany({
+    where: {
+      status: { in: ["CONFIRMED", "PARTIAL"] },
+      due: { gt: 0 },
+      ...(session.role === "CONTACT" && session.contactId ? { vendorId: session.contactId } : {}),
+    },
+    include: { vendor: true },
+    orderBy: { createdAt: "desc" },
+  });
+
+  const contacts = await db.contact.findMany({ orderBy: { name: "asc" } });
+
+  return NextResponse.json({ payments, openInvoices, openBills, contacts });
 }
 
 export async function POST(req: Request) {

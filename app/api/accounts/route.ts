@@ -24,7 +24,44 @@ export async function GET(req: Request) {
     orderBy: { name: "asc" },
   });
 
-  return NextResponse.json({ accounts });
+  const journalLines = await db.journalLine.findMany({
+    where: { entry: { status: "POSTED" } },
+  });
+
+  const customerInvoices = await db.customerInvoice.findMany({
+    where: { status: { in: ["CONFIRMED", "PARTIAL"] } },
+  });
+  const invoiceDueTotal = customerInvoices.reduce((s, inv) => s + inv.due, 0);
+
+  const vendorBills = await db.vendorBill.findMany({
+    where: { status: { in: ["CONFIRMED", "PARTIAL"] } },
+  });
+  const billDueTotal = vendorBills.reduce((s, b) => s + b.due, 0);
+
+  const enrichedAccounts = accounts.map((acc) => {
+    const accLines = journalLines.filter((l) => l.accountId === acc.id);
+    let rawBal = accLines.reduce((s, l) => s + l.debit - l.credit, 0);
+
+    let balance = 0;
+    if (acc.type === "ASSET" || acc.type === "EXPENSE") {
+      balance = Math.max(0, rawBal);
+      if (acc.subtype === "DEBTOR") {
+        balance = Math.max(balance, invoiceDueTotal);
+      }
+    } else {
+      balance = Math.max(0, -rawBal);
+      if (acc.subtype === "CREDITOR") {
+        balance = Math.max(balance, billDueTotal);
+      }
+    }
+
+    return {
+      ...acc,
+      balance: Math.round(balance * 100) / 100,
+    };
+  });
+
+  return NextResponse.json({ accounts: enrichedAccounts });
 }
 
 export async function POST(req: Request) {

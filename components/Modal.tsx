@@ -38,7 +38,7 @@ export default function Modal({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4 overflow-y-auto animate-fadeIn">
+    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/70 backdrop-blur-sm p-4 overflow-y-auto animate-fadeIn">
       {/* Modal Card Box */}
       <div
         className={`card-mono w-full ${maxWidth} p-6 shadow-2xl relative my-8 border border-[var(--border-color)] bg-[var(--bg-primary)] max-h-[90vh] flex flex-col`}
@@ -46,10 +46,7 @@ export default function Modal({
       >
         {/* Modal Header */}
         <div className="flex items-center justify-between border-b border-[var(--border-color)] pb-4 mb-4 shrink-0">
-          <h2 className="text-lg font-black text-[var(--text-main)] flex items-center gap-2">
-            <span className="p-1.5 rounded-lg bg-[var(--badge-bg)] border border-[var(--border-color)] text-xs">
-              📝
-            </span>
+          <h2 className="text-lg font-black text-[var(--text-main)]">
             {title}
           </h2>
           <button

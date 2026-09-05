@@ -42,14 +42,24 @@ export async function nextSoNo(tx: any) {
 
 export async function nextBillNo(tx: any, date = new Date()) {
   const y = new Date(date).getFullYear();
-  const count = await tx.vendorBill.count();
-  return `Bill/${y}/${String(count + 1).padStart(4, "0")}`;
+  const prefix = `Bill/${y}/`;
+  const last = await tx.vendorBill.findFirst({
+    where: { no: { startsWith: prefix } },
+    orderBy: { createdAt: "desc" },
+  });
+  const lastNum = last && last.no ? parseInt(last.no.split("/").pop() || "0", 10) : 0;
+  return `${prefix}${String(lastNum + 1).padStart(4, "0")}`;
 }
 
 export async function nextInvNo(tx: any, date = new Date()) {
   const y = new Date(date).getFullYear();
-  const count = await tx.customerInvoice.count();
-  return `INV/${y}/${String(count + 1).padStart(4, "0")}`;
+  const prefix = `INV/${y}/`;
+  const last = await tx.customerInvoice.findFirst({
+    where: { no: { startsWith: prefix } },
+    orderBy: { createdAt: "desc" },
+  });
+  const lastNum = last && last.no ? parseInt(last.no.split("/").pop() || "0", 10) : 0;
+  return `${prefix}${String(lastNum + 1).padStart(4, "0")}`;
 }
 
 /**
@@ -77,20 +87,14 @@ export async function generateEntryNumber(
   ).toUpperCase();
 
   const year = new Date(entryDate).getFullYear();
-  const yearStart = new Date(year, 0, 1);
-  const yearEnd = new Date(year, 11, 31, 23, 59, 59);
-
-  const count = await tx.journalEntry.count({
-    where: {
-      journalId,
-      date: {
-        gte: yearStart,
-        lte: yearEnd,
-      },
-    },
+  const prefix = `${journalCode}/${year}/`;
+  const last = await tx.journalEntry.findFirst({
+    where: { entryNumber: { startsWith: prefix } },
+    orderBy: { createdAt: "desc" },
   });
 
-  return `${journalCode}/${year}/${String(count + 1).padStart(4, "0")}`;
+  const lastNum = last && last.entryNumber ? parseInt(last.entryNumber.split("/").pop() || "0", 10) : 0;
+  return `${prefix}${String(lastNum + 1).padStart(4, "0")}`;
 }
 
 export const nextEntryNo = generateEntryNumber;

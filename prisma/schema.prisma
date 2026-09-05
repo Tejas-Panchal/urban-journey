@@ -171,6 +171,10 @@ model JournalEntry {
   reversals       JournalEntry? @relation("JournalEntryReversals")
   lines           JournalLine[]
   createdAt       DateTime      @default(now())
+
+  @@index([journalId])
+  @@index([status])
+  @@index([date])
 }
 
 model JournalLine {
@@ -186,6 +190,11 @@ model JournalLine {
   matchedLineId     String?
   debit             Float        @default(0)
   credit            Float        @default(0)
+
+  @@index([entryId])
+  @@index([accountId])
+  @@index([partnerId])
+  @@index([analyticId])
 }
 
 model Analytic {
@@ -204,6 +213,9 @@ model Budget {
   revisionOfId  String?
   lines         BudgetLine[]
   createdAt     DateTime @default(now())
+
+  @@index([status])
+  @@index([start, end])
 }
 
 model BudgetLine {
@@ -214,6 +226,9 @@ model BudgetLine {
   type           AnalyticType
   committed      Float
   achievedCached Float @default(0)
+
+  @@index([budgetId])
+  @@index([analyticId])
 }
 
 // ---- Transactions ----
@@ -227,6 +242,10 @@ model PurchaseOrder {
   subtotal  Float               @default(0)
   lines     PurchaseOrderLine[]
   createdAt DateTime            @default(now())
+
+  @@index([vendorId])
+  @@index([status])
+  @@index([date])
 }
 
 model PurchaseOrderLine {
@@ -238,6 +257,9 @@ model PurchaseOrderLine {
   qty        Float
   unitPrice  Float
   total      Float
+
+  @@index([orderId])
+  @@index([productId])
 }
 
 model VendorBill {
@@ -256,6 +278,11 @@ model VendorBill {
   lines     VendorBillLine[]
   payments  Payment[]
   createdAt DateTime         @default(now())
+
+  @@index([vendorId])
+  @@index([status])
+  @@index([billDate])
+  @@index([dueDate])
 }
 
 model VendorBillLine {
@@ -267,6 +294,9 @@ model VendorBillLine {
   qty        Float
   unitPrice  Float
   total      Float
+
+  @@index([billId])
+  @@index([productId])
 }
 
 model SalesOrder {
@@ -281,6 +311,10 @@ model SalesOrder {
   total      Float            @default(0)
   lines      SalesOrderLine[]
   createdAt  DateTime         @default(now())
+
+  @@index([customerId])
+  @@index([status])
+  @@index([date])
 }
 
 model SalesOrderLine {
@@ -293,6 +327,9 @@ model SalesOrderLine {
   unitPrice  Float
   tax        Float      @default(0)
   total      Float
+
+  @@index([orderId])
+  @@index([productId])
 }
 
 model CustomerInvoice {
@@ -313,6 +350,11 @@ model CustomerInvoice {
   lines      CustomerInvoiceLine[]
   payments   Payment[]
   createdAt  DateTime              @default(now())
+
+  @@index([customerId])
+  @@index([status])
+  @@index([invDate])
+  @@index([dueDate])
 }
 
 model CustomerInvoiceLine {
@@ -325,6 +367,9 @@ model CustomerInvoiceLine {
   unitPrice  Float
   tax        Float           @default(0)
   total      Float
+
+  @@index([invoiceId])
+  @@index([productId])
 }
 
 model Payment {
@@ -341,5 +386,26 @@ model Payment {
   note           String?
   journalEntryId String?
   createdAt      DateTime         @default(now())
+
+  @@index([partnerId])
+  @@index([billId])
+  @@index([invoiceId])
+  @@index([date])
 }
+
+model AuditLog {
+  id         String   @id @default(cuid())
+  userId     String?
+  userName   String?
+  action     String
+  entityType String
+  entityId   String?
+  details    String?
+  createdAt  DateTime @default(now())
+
+  @@index([entityType])
+  @@index([entityId])
+  @@index([createdAt])
+}
+
 

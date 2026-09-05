@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useTheme } from "./ThemeProvider";
 import { SunIcon, MoonIcon } from "./Icons";
+import { CommandPalette } from "./CommandPalette";
 
 interface UserSession {
   user?: {
@@ -127,6 +128,11 @@ export function Navbar() {
           label: "Profit & Loss",
           href: "/reports/profit-loss",
           desc: "Income & Expense Statement",
+        },
+        {
+          label: "AR / AP Aging Report",
+          href: "/reports/aging",
+          desc: "Customer & Vendor Due Schedule",
         },
         {
           label: "Budget Performance",
@@ -256,6 +262,9 @@ export function Navbar() {
 
         {/* Right Action Icons & Profile Badge */}
         <div className="flex items-center gap-3">
+          {/* Spotlight Search Command Palette */}
+          {!isAuthPage && <CommandPalette />}
+
           {/* Theme Toggle Button */}
           <button
             onClick={toggleTheme}

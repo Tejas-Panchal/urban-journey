@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { requireSession, apiError } from "@/lib/api";
+import { budgetSchema } from "@/lib/validations";
 import { computeBudgetAchieved } from "@/lib/budgets";
 
 export async function GET(_req: Request, ctx: { params: Promise<{ id: string }> }) {
@@ -39,10 +40,14 @@ export async function PUT(req: Request, ctx: { params: Promise<{ id: string }> }
   if (error) return error!;
   const { id } = await ctx.params;
   const body = await req.json().catch(() => ({}));
-  const { name, start, end, responsibleId, lines } = body;
+  
+  const parsed = budgetSchema.partial().safeParse(body);
+  if (!parsed.success) return apiError(parsed.error.issues[0]?.message ?? "Invalid input", 400);
 
   const existing = await db.budget.findUnique({ where: { id } });
   if (!existing) return apiError("Not found", 404);
+
+  const { name, start, end, responsibleId, lines } = parsed.data;
 
   if (lines && Array.isArray(lines)) {
     await db.budgetLine.deleteMany({ where: { budgetId: id } });

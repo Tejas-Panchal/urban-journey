@@ -7,6 +7,7 @@ export default function ProfitLossReportPage() {
   const [loading, setLoading] = useState(true);
   const [fromDate, setFromDate] = useState<string>("");
   const [toDate, setToDate] = useState<string>("");
+  const [todayStr, setTodayStr] = useState<string>("");
   const [printDate, setPrintDate] = useState<string>("");
 
   const loadData = async (from?: string, to?: string) => {
@@ -29,8 +30,16 @@ export default function ProfitLossReportPage() {
 
   useEffect(() => {
     loadData();
+    const now = new Date();
+    setTodayStr(
+      now.toLocaleDateString("en-IN", {
+        day: "2-digit",
+        month: "long",
+        year: "numeric",
+      })
+    );
     setPrintDate(
-      new Date().toLocaleString("en-IN", {
+      now.toLocaleString("en-IN", {
         day: "2-digit",
         month: "short",
         year: "numeric",
@@ -95,18 +104,14 @@ export default function ProfitLossReportPage() {
       ? Math.round((netOperatingIncome / totalIncome) * 1000) / 10
       : 0;
 
-  const todayStr = new Date().toLocaleDateString("en-IN", {
-    day: "2-digit",
-    month: "long",
-    year: "numeric",
-  });
-
   const periodLabel =
     fromDate || toDate
       ? `${fromDate ? new Date(fromDate).toLocaleDateString("en-IN") : "Beginning"} — ${
           toDate ? new Date(toDate).toLocaleDateString("en-IN") : "Present"
         }`
-      : `For Period Ending ${todayStr}`;
+      : todayStr
+      ? `For Period Ending ${todayStr}`
+      : "For Current Period";
 
   return (
     <main className="mx-auto max-w-6xl px-6 py-8 print:p-0 print:max-w-none">

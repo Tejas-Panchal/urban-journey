@@ -3,16 +3,17 @@
 import React, { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Modal from "@/components/Modal";
+import { RefreshIcon } from "@/components/Icons";
 
 interface Account {
   id: string;
   name: string;
   type: "ASSET" | "LIABILITY" | "INCOME" | "EXPENSE" | "CAPITAL";
   subtype: "CASH" | "BANK" | "DEBTOR" | "CREDITOR" | "SALE" | "PURCHASE" | "OTHER" | "CAPITAL";
+  balance?: number;
   isArchived: boolean;
 }
 
-// Wireframe specification options mapped to database Enum values
 const ACCOUNT_TYPE_OPTIONS = [
   {
     group: "Balancesheet",
@@ -41,6 +42,7 @@ export default function ChartOfAccountsPage() {
   const [showModal, setShowModal] = useState(false);
   const [search, setSearch] = useState("");
   const [showArchived, setShowArchived] = useState(false);
+  const [activeTab, setActiveTab] = useState<"ALL" | "ASSET" | "LIABILITY" | "CAPITAL" | "INCOME" | "EXPENSE">("ALL");
   const [err, setErr] = useState("");
   const [successMsg, setSuccessMsg] = useState("");
   const [saving, setSaving] = useState(false);
@@ -49,7 +51,7 @@ export default function ChartOfAccountsPage() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [form, setForm] = useState({
     name: "",
-    selectedOptionIndex: "Balancesheet-0", // key for selected option
+    selectedOptionIndex: "Balancesheet-0",
   });
 
   const fetchAccounts = async () => {
@@ -88,8 +90,7 @@ export default function ChartOfAccountsPage() {
 
   const handleEdit = (acc: Account) => {
     setEditingId(acc.id);
-    
-    // Find matching option key
+
     let foundKey = "Balancesheet-0";
     ACCOUNT_TYPE_OPTIONS.forEach((grp) => {
       grp.options.forEach((opt, idx) => {
@@ -118,7 +119,6 @@ export default function ChartOfAccountsPage() {
       return;
     }
 
-    // Resolve selected option payload
     const [grpName, idxStr] = form.selectedOptionIndex.split("-");
     const grp = ACCOUNT_TYPE_OPTIONS.find((g) => g.group === grpName);
     const selectedOpt = grp ? grp.options[parseInt(idxStr, 10)] : ACCOUNT_TYPE_OPTIONS[0].options[0];
@@ -173,21 +173,48 @@ export default function ChartOfAccountsPage() {
     }
   };
 
-  // Format type string for list view as shown in wireframe (Assets, Expense, Liabilities, Income, Capital)
-  const formatAccountType = (acc: Account) => {
-    if (acc.type === "ASSET") return "Assets";
-    if (acc.type === "LIABILITY") return "Liabilities";
-    if (acc.type === "INCOME") return "Income";
-    if (acc.type === "EXPENSE") return "Expense";
-    if (acc.type === "CAPITAL") return "Capital";
-    return acc.type;
+  const formatCurrency = (val: number) =>
+    new Intl.NumberFormat("en-IN", { style: "currency", currency: "INR", maximumFractionDigits: 2 }).format(val);
+
+  const getStatementGroup = (acc: Account) => {
+    if (acc.type === "ASSET" || acc.type === "LIABILITY" || acc.type === "CAPITAL") {
+      return "Balance Sheet";
+    }
+    return "Profit & Loss";
   };
+
+  const getTypeBadgeStyle = (acc: Account) => {
+    switch (acc.type) {
+      case "ASSET":
+        return "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20";
+      case "LIABILITY":
+        return "bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/20";
+      case "INCOME":
+        return "bg-cyan-500/10 text-cyan-600 dark:text-cyan-400 border-cyan-500/20";
+      case "EXPENSE":
+        return "bg-rose-500/10 text-rose-600 dark:text-rose-400 border-rose-500/20";
+      case "CAPITAL":
+        return "bg-purple-500/10 text-purple-600 dark:text-purple-400 border-purple-500/20";
+      default:
+        return "bg-slate-500/10 text-slate-600 border-slate-500/20";
+    }
+  };
+
+  const filteredAccounts = accounts.filter((acc) => {
+    if (activeTab !== "ALL" && acc.type !== activeTab) return false;
+    return true;
+  });
+
+  // Calculate totals for KPI summary cards
+  const totalAssetsBal = accounts.filter((a) => a.type === "ASSET").reduce((s, a) => s + (a.balance || 0), 0);
+  const totalLiabBal = accounts.filter((a) => a.type === "LIABILITY").reduce((s, a) => s + (a.balance || 0), 0);
+  const totalIncomeBal = accounts.filter((a) => a.type === "INCOME").reduce((s, a) => s + (a.balance || 0), 0);
+  const totalExpenseBal = accounts.filter((a) => a.type === "EXPENSE").reduce((s, a) => s + (a.balance || 0), 0);
 
   return (
     <main className="mx-auto max-w-7xl px-6 py-8">
-      {/* --- HEADER BAR --- */}
+      {/* HEADER BAR matching _list.tsx */}
       <div className="flex flex-wrap items-center justify-between gap-4 card-mono p-4 mb-6 shadow-md">
-        {/* Left Action Buttons */}
         <div className="flex items-center gap-3">
           <button
             onClick={handleNew}
@@ -218,109 +245,148 @@ export default function ChartOfAccountsPage() {
           </div>
         </div>
 
-        {/* Right Controls: Home & Back */}
         <div className="flex items-center gap-3">
-          <button
-            onClick={() => router.push("/dashboard")}
-            className="btn-outline px-5 py-2 text-xs font-bold rounded-lg"
-          >
-            Home
-          </button>
-
           <button
             onClick={() => router.push("/dashboard")}
             className="btn-outline px-5 py-2 text-xs font-bold rounded-lg"
           >
             Back
           </button>
+          <button onClick={fetchAccounts} className="btn-outline p-2 rounded-lg" title="Refresh">
+            <RefreshIcon className="h-4 w-4" />
+          </button>
         </div>
       </div>
 
-      {/* --- POPUP COMPONENT (MODAL) --- */}
+      {/* TOP KPI METRIC SUMMARY CARDS */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+        <div className="card-mono p-4 bg-emerald-500/5 border-emerald-500/20">
+          <div className="text-[10px] font-extrabold uppercase tracking-wider text-emerald-700 dark:text-emerald-400">
+            Total Assets Balance
+          </div>
+          <div className="text-xl font-black font-mono mt-1 text-[var(--text-main)]">
+            {formatCurrency(totalAssetsBal)}
+          </div>
+          <div className="text-[11px] text-[var(--text-muted)] mt-1 font-medium">
+            Cash, Bank & Receivables
+          </div>
+        </div>
+
+        <div className="card-mono p-4 bg-amber-500/5 border-amber-500/20">
+          <div className="text-[10px] font-extrabold uppercase tracking-wider text-amber-700 dark:text-amber-400">
+            Total Liabilities Balance
+          </div>
+          <div className="text-xl font-black font-mono mt-1 text-[var(--text-main)]">
+            {formatCurrency(totalLiabBal)}
+          </div>
+          <div className="text-[11px] text-[var(--text-muted)] mt-1 font-medium">
+            Payables & Current Debts
+          </div>
+        </div>
+
+        <div className="card-mono p-4 bg-cyan-500/5 border-cyan-500/20">
+          <div className="text-[10px] font-extrabold uppercase tracking-wider text-cyan-700 dark:text-cyan-400">
+            Sales & Operating Income
+          </div>
+          <div className="text-xl font-black font-mono mt-1 text-[var(--text-main)]">
+            {formatCurrency(totalIncomeBal)}
+          </div>
+          <div className="text-[11px] text-[var(--text-muted)] mt-1 font-medium">
+            Invoiced Revenues
+          </div>
+        </div>
+
+        <div className="card-mono p-4 bg-rose-500/5 border-rose-500/20">
+          <div className="text-[10px] font-extrabold uppercase tracking-wider text-rose-700 dark:text-rose-400">
+            Purchases & Expenses
+          </div>
+          <div className="text-xl font-black font-mono mt-1 text-[var(--text-main)]">
+            {formatCurrency(totalExpenseBal)}
+          </div>
+          <div className="text-[11px] text-[var(--text-muted)] mt-1 font-medium">
+            Vendor Bills & Operating Costs
+          </div>
+        </div>
+      </div>
+
+      {/* CATEGORY TABS */}
+      <div className="flex items-center gap-1.5 overflow-x-auto pb-2 mb-4 border-b border-[var(--border-color)] text-xs">
+        {[
+          { id: "ALL", label: "All Accounts" },
+          { id: "ASSET", label: "Assets" },
+          { id: "LIABILITY", label: "Liabilities" },
+          { id: "CAPITAL", label: "Equity & Capital" },
+          { id: "INCOME", label: "Income" },
+          { id: "EXPENSE", label: "Expenses" },
+        ].map((tab) => (
+          <button
+            key={tab.id}
+            onClick={() => setActiveTab(tab.id as any)}
+            className={`px-3.5 py-1.5 rounded-lg font-bold transition-colors shrink-0 ${
+              activeTab === tab.id
+                ? "bg-[var(--text-main)] text-[var(--bg-primary)] shadow-sm"
+                : "text-[var(--text-muted)] hover:text-[var(--text-main)] hover:bg-[var(--badge-bg)]"
+            }`}
+          >
+            {tab.label}
+          </button>
+        ))}
+      </div>
+
+      {/* MODAL POPUP FOR CREATION AND EDITING */}
       <Modal
         isOpen={showModal}
         onClose={() => setShowModal(false)}
-        title={editingId ? "Edit Account" : "Create New Account"}
+        title={editingId ? "Edit GL Account" : "Create New GL Account"}
       >
         <div className="p-2">
           {err && (
-            <div className="mb-6 rounded-lg bg-red-500/10 border border-red-500/30 p-3 text-xs text-red-500 font-medium text-center">
+            <div className="mb-4 rounded-lg bg-red-500/10 border border-red-500/30 p-3 text-xs text-red-600 font-semibold text-center">
               {err}
             </div>
           )}
           {successMsg && (
-            <div className="mb-6 rounded-lg bg-emerald-500/10 border border-emerald-500/30 p-3 text-xs text-emerald-500 font-medium text-center">
+            <div className="mb-4 rounded-lg bg-emerald-500/10 border border-emerald-500/30 p-3 text-xs text-emerald-600 font-semibold text-center">
               {successMsg}
             </div>
           )}
 
-          <form onSubmit={handleConfirm} className="space-y-6 text-xs">
-            {/* Account Name */}
-            <div className="grid grid-cols-12 items-center gap-4">
-              <label className="col-span-3 font-bold text-xs text-[#e06666]">
+          <form onSubmit={handleConfirm} className="space-y-5 text-xs">
+            <div>
+              <label className="block font-bold text-xs text-[var(--text-main)] mb-1 uppercase tracking-wider">
                 Account Name *
               </label>
               <input
                 type="text"
                 value={form.name}
                 onChange={(e) => setForm({ ...form, name: e.target.value })}
-                placeholder="Enter Account Name (e.g. Bank A/c, Cash A/c)"
-                className="col-span-9 rounded-lg border border-[var(--border-color)] bg-[var(--bg-primary)] px-3 py-2 text-xs text-[var(--text-main)] font-semibold focus:outline-none focus:border-[var(--text-main)]"
+                placeholder="Enter Account Name (e.g. Bank Account, Cash in Hand)"
+                className="w-full rounded-lg border border-[var(--border-color)] bg-[var(--bg-primary)] px-3.5 py-2 text-xs text-[var(--text-main)] font-semibold outline-none focus:border-[var(--text-main)]"
                 required
               />
             </div>
 
-            {/* Type Selection with Dropdown */}
-            <div className="grid grid-cols-12 items-start gap-4">
-              <label className="col-span-3 font-bold text-xs text-[#e06666] pt-2">
-                Type *
+            <div>
+              <label className="block font-bold text-xs text-[var(--text-main)] mb-1 uppercase tracking-wider">
+                Classification Type *
               </label>
-              <div className="col-span-9 space-y-3">
-                <select
-                  value={form.selectedOptionIndex}
-                  onChange={(e) => setForm({ ...form, selectedOptionIndex: e.target.value })}
-                  className="w-full rounded-lg border border-[var(--border-color)] bg-[var(--bg-primary)] px-3.5 py-2 text-xs text-[var(--text-main)] font-semibold focus:outline-none focus:border-[var(--text-main)]"
-                >
-                  {ACCOUNT_TYPE_OPTIONS.map((grp) => (
-                    <optgroup key={grp.group} label={grp.group} className="font-bold text-[var(--text-main)]">
-                      {grp.options.map((opt, idx) => (
-                        <option key={`${grp.group}-${idx}`} value={`${grp.group}-${idx}`}>
-                          {opt.label}
-                        </option>
-                      ))}
-                    </optgroup>
-                  ))}
-                </select>
-
-                <div className="p-3 rounded-lg bg-[var(--badge-bg)] border border-sky-500/20 text-sky-400 text-[11px] leading-relaxed">
-                  <p className="font-semibold mb-1">
-                    Select account classification:
-                  </p>
-                  <div className="grid grid-cols-2 gap-2 text-[10px] font-mono text-[var(--text-muted)] border-t border-[var(--border-color)]/40 pt-2 mt-1">
-                    <div>
-                      <strong className="text-emerald-400">Balancesheet:</strong>
-                      <ul className="list-disc list-inside mt-0.5 space-y-0.5">
-                        <li>Asset</li>
-                        <li>Liability</li>
-                        <li>Bank</li>
-                        <li>Capital</li>
-                        <li>Cash</li>
-                      </ul>
-                    </div>
-                    <div>
-                      <strong className="text-emerald-400">Profit and Loss:</strong>
-                      <ul className="list-disc list-inside mt-0.5 space-y-0.5">
-                        <li>Income</li>
-                        <li>Expenses</li>
-                        <li>Other Expenses</li>
-                      </ul>
-                    </div>
-                  </div>
-                </div>
-              </div>
+              <select
+                value={form.selectedOptionIndex}
+                onChange={(e) => setForm({ ...form, selectedOptionIndex: e.target.value })}
+                className="w-full rounded-lg border border-[var(--border-color)] bg-[var(--bg-primary)] px-3.5 py-2 text-xs text-[var(--text-main)] font-semibold outline-none focus:border-[var(--text-main)]"
+              >
+                {ACCOUNT_TYPE_OPTIONS.map((grp) => (
+                  <optgroup key={grp.group} label={grp.group} className="font-bold text-[var(--text-main)]">
+                    {grp.options.map((opt, idx) => (
+                      <option key={`${grp.group}-${idx}`} value={`${grp.group}-${idx}`}>
+                        {grp.group}: {opt.label} ({opt.type})
+                      </option>
+                    ))}
+                  </optgroup>
+                ))}
+              </select>
             </div>
 
-            {/* Modal Form Actions */}
             <div className="flex justify-end gap-3 pt-4 border-t border-[var(--border-color)]">
               <button
                 type="button"
@@ -332,7 +398,7 @@ export default function ChartOfAccountsPage() {
               <button
                 type="submit"
                 disabled={saving}
-                className="btn-outline px-5 py-2 text-xs font-bold rounded-lg border-2 bg-[var(--badge-bg)]"
+                className="btn-primary px-5 py-2 text-xs font-bold rounded-lg shadow-md"
               >
                 {saving ? "Saving..." : editingId ? "Update Account" : "Create Account"}
               </button>
@@ -341,50 +407,71 @@ export default function ChartOfAccountsPage() {
         </div>
       </Modal>
 
-      {/* --- LIST VIEW (CHART OF ACCOUNTS TABLE ALWAYS VISIBLE) --- */}
+      {/* CHART OF ACCOUNTS TABLE (CLEAN TYPOGRAPHY) */}
       <div className="card-mono shadow-2xl overflow-hidden">
         <div className="p-4 border-b border-[var(--border-color)] bg-[var(--badge-bg)] flex justify-between items-center">
-          <div>
-            <h2 className="text-lg font-black text-[var(--text-main)]">
-              Chart of Accounts
-            </h2>
-          </div>
-          <span className="text-xs font-semibold text-[var(--text-muted)]">
-            Total: {accounts.length}
+          <h2 className="text-lg font-black text-[var(--text-main)]">
+            Chart of Accounts Listing
+          </h2>
+          <span className="text-xs font-bold font-mono text-[var(--text-muted)]">
+            Showing {filteredAccounts.length} of {accounts.length} Accounts
           </span>
         </div>
 
         <div className="overflow-x-auto">
           {loading ? (
             <div className="py-16 text-center text-xs text-[var(--text-muted)]">
-              Loading chart of accounts...
+              Loading Chart of Accounts...
             </div>
-          ) : accounts.length === 0 ? (
+          ) : filteredAccounts.length === 0 ? (
             <div className="py-16 text-center text-xs text-[var(--text-muted)]">
-              No accounts found.
+              No accounts match the current filter.
             </div>
           ) : (
-            <table className="w-full text-left text-xs">
+            <table className="w-full text-left text-xs border-collapse">
               <thead>
-                <tr className="border-b border-[var(--border-color)] bg-[var(--card-bg)] text-[var(--text-muted)] font-bold uppercase tracking-wider">
+                <tr className="border-b border-[var(--border-color)] bg-[var(--card-bg)] text-[var(--text-muted)] font-extrabold uppercase tracking-wider text-[10px]">
                   <th className="py-3.5 px-6">Account Name</th>
-                  <th className="py-3.5 px-6">Type</th>
+                  <th className="py-3.5 px-6">Statement Group</th>
+                  <th className="py-3.5 px-6">Type & Subtype</th>
+                  <th className="py-3.5 px-6 text-right">Posted GL Balance</th>
                   <th className="py-3.5 px-6 text-right">Actions</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-[var(--border-color)]/60">
-                {accounts.map((acc) => (
+                {filteredAccounts.map((acc) => (
                   <tr
                     key={acc.id}
                     onClick={() => handleEdit(acc)}
                     className="hover:bg-[var(--card-hover)] cursor-pointer transition-colors"
                   >
-                    <td className="py-3.5 px-6 font-bold text-red-400 font-serif text-sm">
+                    {/* Clean Bold Account Name */}
+                    <td className="py-3.5 px-6 font-extrabold text-[var(--text-main)] text-sm">
                       {acc.name}
                     </td>
-                    <td className="py-3.5 px-6 font-serif text-red-400 italic text-sm">
-                      {formatAccountType(acc)}
+
+                    {/* Statement Group */}
+                    <td className="py-3.5 px-6 font-semibold text-[var(--text-muted)]">
+                      {getStatementGroup(acc)}
                     </td>
+
+                    {/* Account Type Badge */}
+                    <td className="py-3.5 px-6">
+                      <span
+                        className={`inline-block rounded-md px-2.5 py-1 text-[10px] font-extrabold uppercase border ${getTypeBadgeStyle(
+                          acc
+                        )}`}
+                      >
+                        {acc.type} ({acc.subtype})
+                      </span>
+                    </td>
+
+                    {/* Real-time Posted GL Balance */}
+                    <td className="py-3.5 px-6 text-right font-mono font-bold text-sm text-[var(--text-main)]">
+                      {formatCurrency(acc.balance || 0)}
+                    </td>
+
+                    {/* Actions */}
                     <td className="py-3.5 px-6 text-right space-x-2" onClick={(e) => e.stopPropagation()}>
                       <button
                         onClick={() => handleEdit(acc)}
@@ -396,8 +483,8 @@ export default function ChartOfAccountsPage() {
                         onClick={(e) => toggleArchive(acc, e)}
                         className={`px-2.5 py-1 text-[11px] font-bold rounded border transition-colors ${
                           acc.isArchived
-                            ? "border-emerald-500/30 text-emerald-400 hover:bg-emerald-500/10"
-                            : "border-amber-500/30 text-amber-400 hover:bg-amber-500/10"
+                            ? "border-emerald-500/30 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-500/10"
+                            : "border-amber-500/30 text-amber-600 dark:text-amber-400 hover:bg-amber-500/10"
                         }`}
                       >
                         {acc.isArchived ? "Unarchive" : "Archive"}
