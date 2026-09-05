@@ -41,9 +41,6 @@ export default function PaymentsPage() {
           <h1 className="text-2xl font-black tracking-tight text-[var(--text-main)]">
             Payments Ledger
           </h1>
-          <p className="mt-1 text-xs text-[var(--text-muted)]">
-            Record of all customer receivables and vendor bill disbursements.
-          </p>
         </div>
       </div>
 

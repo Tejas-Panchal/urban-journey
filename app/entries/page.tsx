@@ -26,10 +26,17 @@ export default function JournalEntriesPage() {
     new Intl.NumberFormat("en-IN", { style: "currency", currency: "INR" }).format(val);
 
   const filteredEntries = entries.filter((e) => {
-    const search = q.toLowerCase();
+    if (!q.trim()) return true;
+    const search = q.toLowerCase().trim();
     return (
-      e.reference?.toLowerCase().includes(search) ||
-      e.sourceType?.toLowerCase().includes(search)
+      (e.reference && e.reference.toLowerCase().includes(search)) ||
+      (e.sourceType && e.sourceType.toLowerCase().includes(search)) ||
+      (e.journal?.name && e.journal.name.toLowerCase().includes(search)) ||
+      (e.lines && e.lines.some((l: any) =>
+        (l.account?.name && l.account.name.toLowerCase().includes(search)) ||
+        (l.account?.code && l.account.code.toLowerCase().includes(search)) ||
+        (l.partner?.name && l.partner.name.toLowerCase().includes(search))
+      ))
     );
   });
 
@@ -40,9 +47,6 @@ export default function JournalEntriesPage() {
           <h1 className="text-2xl font-black tracking-tight text-[var(--text-main)]">
             Journal Entries (General Ledger)
           </h1>
-          <p className="mt-1 text-xs text-[var(--text-muted)]">
-            Balanced double-entry accounting transactions across journals.
-          </p>
         </div>
       </div>
 
@@ -84,6 +88,11 @@ export default function JournalEntriesPage() {
                     <span className="font-mono font-bold text-[var(--text-main)] text-sm">
                       {entry.reference || `ENTRY-${entry.id.slice(-6)}`}
                     </span>
+                    {entry.journal?.name && (
+                      <span className="inline-block px-2 py-0.5 rounded text-[10px] font-bold bg-[var(--card-bg)] border border-[var(--border-color)] text-[var(--text-main)] font-mono">
+                        {entry.journal.name}
+                      </span>
+                    )}
                     <span className="rounded-full bg-[var(--text-main)] px-2.5 py-0.5 text-[9px] font-extrabold text-[var(--bg-primary)] uppercase">
                       {entry.status}
                     </span>

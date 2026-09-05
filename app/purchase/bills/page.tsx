@@ -1,6 +1,7 @@
 "use client";
 import React, { useEffect, useState } from "react";
 import { CreditCardIcon } from "@/components/Icons";
+import Modal from "@/components/Modal";
 
 interface LineItem {
   productId: string;
@@ -19,13 +20,16 @@ export default function VendorBillsPage() {
   const [showModal, setShowModal] = useState(false);
   const [showPayModal, setShowPayModal] = useState(false);
   const [selectedBill, setSelectedBill] = useState<any>(null);
+  const [viewDetailBill, setViewDetailBill] = useState<any>(null);
 
   // Form state
   const [vendorId, setVendorId] = useState("");
   const [billRef, setBillRef] = useState("BILL-REF-001");
-  const [billDate, setBillDate] = useState(new Date().toISOString().split("T")[0]);
+  const [billDate, setBillDate] = useState(
+    new Date().toISOString().split("T")[0],
+  );
   const [dueDate, setDueDate] = useState(
-    new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split("T")[0]
+    new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split("T")[0],
   );
   const [lines, setLines] = useState<LineItem[]>([
     { productId: "", qty: 1, unitPrice: 0, tax: 0 },
@@ -36,15 +40,23 @@ export default function VendorBillsPage() {
   // Payment Form state
   const [payAmount, setPayAmount] = useState(0);
   const [payVia, setPayVia] = useState<"BANK" | "CASH">("BANK");
-  const [payDate, setPayDate] = useState(new Date().toISOString().split("T")[0]);
+  const [payDate, setPayDate] = useState(
+    new Date().toISOString().split("T")[0],
+  );
 
   const loadData = async () => {
     setLoading(true);
     try {
       const [billRes, contactRes, prodRes] = await Promise.all([
-        fetch("/api/purchase/bills").then((r) => r.json()).catch(() => ({ bills: [] })),
-        fetch("/api/contacts").then((r) => r.json()).catch(() => ({ contacts: [] })),
-        fetch("/api/products").then((r) => r.json()).catch(() => ({ products: [] })),
+        fetch("/api/purchase/bills")
+          .then((r) => r.json())
+          .catch(() => ({ bills: [] })),
+        fetch("/api/contacts")
+          .then((r) => r.json())
+          .catch(() => ({ contacts: [] })),
+        fetch("/api/products")
+          .then((r) => r.json())
+          .catch(() => ({ products: [] })),
       ]);
       setBills(billRes.bills || []);
       setContacts(contactRes.contacts || []);
@@ -84,7 +96,8 @@ export default function VendorBillsPage() {
     setLines(next);
   };
 
-  const calculateSubtotal = () => lines.reduce((s, l) => s + l.qty * l.unitPrice, 0);
+  const calculateSubtotal = () =>
+    lines.reduce((s, l) => s + l.qty * l.unitPrice, 0);
   const calculateTax = () =>
     lines.reduce((s, l) => s + l.qty * l.unitPrice * ((l.tax || 0) / 100), 0);
   const calculateTotal = () => calculateSubtotal() + calculateTax();
@@ -97,7 +110,9 @@ export default function VendorBillsPage() {
       return;
     }
     if (lines.some((l) => !l.productId || l.qty <= 0)) {
-      setErrorMsg("Please ensure all line items have a product and positive quantity.");
+      setErrorMsg(
+        "Please ensure all line items have a product and positive quantity.",
+      );
       return;
     }
 
@@ -160,8 +175,26 @@ export default function VendorBillsPage() {
     }
   };
 
+  const handleConfirmBill = async (billId: string) => {
+    try {
+      const res = await fetch(`/api/purchase/bills/${billId}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "confirm" }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error || "Failed to confirm bill");
+      loadData();
+    } catch (err: any) {
+      alert(err.message || "Failed to confirm bill");
+    }
+  };
+
   const formatCurrency = (val: number) =>
-    new Intl.NumberFormat("en-IN", { style: "currency", currency: "INR" }).format(val);
+    new Intl.NumberFormat("en-IN", {
+      style: "currency",
+      currency: "INR",
+    }).format(val);
 
   const filteredBills = bills.filter((b) => {
     const matchesQ =
@@ -179,9 +212,6 @@ export default function VendorBillsPage() {
           <h1 className="text-2xl font-black tracking-tight text-[var(--text-main)]">
             Vendor Bills (AP)
           </h1>
-          <p className="mt-1 text-xs text-[var(--text-muted)]">
-            Manage vendor payables, bill references, and vendor disbursement payments.
-          </p>
         </div>
         <button
           onClick={() => setShowModal(true)}
@@ -244,7 +274,11 @@ export default function VendorBillsPage() {
               </thead>
               <tbody className="divide-y divide-[var(--border-color)]/60">
                 {filteredBills.map((b) => (
-                  <tr key={b.id} className="hover:bg-[var(--card-hover)] transition-colors">
+                  <tr
+                    key={b.id}
+                    onClick={() => setViewDetailBill(b)}
+                    className="hover:bg-[var(--card-hover)] transition-colors cursor-pointer"
+                  >
                     <td className="py-3.5 px-4 font-mono font-bold text-[var(--text-main)]">
                       {b.no}
                     </td>
@@ -255,10 +289,12 @@ export default function VendorBillsPage() {
                       {new Date(b.billDate).toLocaleDateString()}
                     </td>
                     <td className="py-3.5 px-4 font-medium text-[var(--text-main)]">
-                      {b.vendor?.name || contacts.find((c) => c.id === b.vendorId)?.name || b.vendorId}
+                      {b.vendor?.name ||
+                        contacts.find((c) => c.id === b.vendorId)?.name ||
+                        b.vendorId}
                     </td>
                     <td className="py-3.5 px-4 text-right font-bold text-[var(--text-main)]">
-                      {formatCurrency(b.total || 0)}
+                      {formatCurrency(b.total || b.subtotal || 0)}
                     </td>
                     <td className="py-3.5 px-4 text-right font-semibold text-[var(--text-muted)]">
                       {formatCurrency(b.due || 0)}
@@ -268,15 +304,25 @@ export default function VendorBillsPage() {
                         {b.status}
                       </span>
                     </td>
-                    <td className="py-3.5 px-4 text-center">
-                      {b.due > 0 && (
+                    <td
+                      className="py-3.5 px-4 text-center"
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      {b.status === "DRAFT" ? (
+                        <button
+                          onClick={() => handleConfirmBill(b.id)}
+                          className="btn-outline text-[11px] py-1 px-2.5 flex items-center justify-center gap-1 mx-auto border-emerald-500/40 text-emerald-400 hover:bg-emerald-500/10 font-bold"
+                        >
+                          ✓ Confirm
+                        </button>
+                      ) : b.due > 0 ? (
                         <button
                           onClick={() => openPaymentModal(b)}
                           className="btn-outline text-[11px] py-1 px-2.5 flex items-center justify-center gap-1 mx-auto"
                         >
                           <CreditCardIcon className="h-3.5 w-3.5" /> Pay Bill
                         </button>
-                      )}
+                      ) : null}
                     </td>
                   </tr>
                 ))}
@@ -286,12 +332,144 @@ export default function VendorBillsPage() {
         </div>
       </div>
 
+      {/* --- VENDOR BILL DETAIL POPUP COMPONENT (MODAL) --- */}
+      <Modal
+        isOpen={Boolean(viewDetailBill)}
+        onClose={() => setViewDetailBill(null)}
+        title={`Vendor Bill ${viewDetailBill?.no || ""}`}
+        maxWidth="max-w-3xl"
+      >
+        {viewDetailBill && (
+          <div className="space-y-4 text-xs">
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 p-4 rounded-lg bg-[var(--badge-bg)] border border-[var(--border-color)]">
+              <div>
+                <span className="text-[var(--text-muted)] block text-[10px] uppercase font-bold">
+                  Bill Ref
+                </span>
+                <span className="font-mono font-bold text-[var(--text-main)]">
+                  {viewDetailBill.no}
+                </span>
+              </div>
+              <div>
+                <span className="text-[var(--text-muted)] block text-[10px] uppercase font-bold">
+                  Vendor
+                </span>
+                <span className="font-bold text-[var(--text-main)]">
+                  {viewDetailBill.vendor?.name ||
+                    contacts.find((c) => c.id === viewDetailBill.vendorId)
+                      ?.name ||
+                    viewDetailBill.vendorId}
+                </span>
+              </div>
+              <div>
+                <span className="text-[var(--text-muted)] block text-[10px] uppercase font-bold">
+                  Bill Date
+                </span>
+                <span className="font-mono text-[var(--text-main)]">
+                  {new Date(viewDetailBill.billDate).toLocaleDateString()}
+                </span>
+              </div>
+              <div>
+                <span className="text-[var(--text-muted)] block text-[10px] uppercase font-bold">
+                  Status
+                </span>
+                <span className="font-bold text-emerald-400">
+                  {viewDetailBill.status}
+                </span>
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <h4 className="font-bold text-xs text-[var(--text-main)]">
+                Bill Line Items
+              </h4>
+              <table className="w-full text-left text-xs border border-[var(--border-color)]">
+                <thead>
+                  <tr className="border-b border-[var(--border-color)] bg-[var(--badge-bg)] text-[var(--text-muted)] font-bold">
+                    <th className="p-2">Product</th>
+                    <th className="p-2 text-right">Qty</th>
+                    <th className="p-2 text-right">Unit Price</th>
+                    <th className="p-2 text-right">Total</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-[var(--border-color)]/60 font-mono">
+                  {(viewDetailBill.lines || []).map((l: any, idx: number) => (
+                    <tr key={l.id || idx}>
+                      <td className="p-2 font-sans font-semibold">
+                        {l.product?.name ||
+                          products.find((p) => p.id === l.productId)?.name ||
+                          l.productId}
+                      </td>
+                      <td className="p-2 text-right">{l.qty}</td>
+                      <td className="p-2 text-right">
+                        {formatCurrency(l.unitPrice)}
+                      </td>
+                      <td className="p-2 text-right font-bold">
+                        {formatCurrency(l.total)}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+
+            <div className="flex justify-between items-center pt-3 border-t border-[var(--border-color)]">
+              <div className="text-[11px] font-mono">
+                <span className="text-[var(--text-muted)]">
+                  Subtotal Amount:{" "}
+                </span>
+                <span className="font-bold text-emerald-400 text-sm">
+                  {formatCurrency(viewDetailBill.subtotal || 0)}
+                </span>
+              </div>
+              <div className="flex gap-2">
+                {viewDetailBill.status === "DRAFT" && (
+                  <button
+                    onClick={() => {
+                      const id = viewDetailBill.id;
+                      handleConfirmBill(id);
+                      setViewDetailBill((prev: any) =>
+                        prev ? { ...prev, status: "CONFIRMED" } : null,
+                      );
+                    }}
+                    className="btn-outline px-4 py-2 text-xs font-bold rounded-lg bg-emerald-500/20 text-emerald-300 border-emerald-500/40 hover:bg-emerald-500/30"
+                  >
+                    Confirm Bill
+                  </button>
+                )}
+                {viewDetailBill.status !== "DRAFT" &&
+                  viewDetailBill.due > 0 && (
+                    <button
+                      onClick={() => {
+                        const b = viewDetailBill;
+                        setViewDetailBill(null);
+                        openPaymentModal(b);
+                      }}
+                      className="btn-outline px-4 py-2 text-xs font-bold rounded-lg bg-[var(--badge-bg)]"
+                    >
+                      Pay Bill Now
+                    </button>
+                  )}
+                <button
+                  onClick={() => setViewDetailBill(null)}
+                  className="btn-outline px-4 py-2 text-xs font-bold rounded-lg"
+                >
+                  Close
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+      </Modal>
+
       {/* Create Bill Modal */}
       {showModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 overflow-y-auto">
           <div className="card-mono w-full max-w-3xl p-6 shadow-2xl">
             <div className="flex items-center justify-between border-b border-[var(--border-color)] pb-4">
-              <h2 className="text-lg font-bold text-[var(--text-main)]">Create Vendor Bill</h2>
+              <h2 className="text-lg font-bold text-[var(--text-main)]">
+                Create Vendor Bill
+              </h2>
               <button
                 onClick={() => setShowModal(false)}
                 className="text-[var(--text-muted)] font-bold"
@@ -370,9 +548,13 @@ export default function VendorBillsPage() {
                       <tr>
                         <th className="py-2.5 px-3">Product</th>
                         <th className="py-2.5 px-3 w-20">Qty</th>
-                        <th className="py-2.5 px-3 w-28 text-right">Cost Price</th>
+                        <th className="py-2.5 px-3 w-28 text-right">
+                          Cost Price
+                        </th>
                         <th className="py-2.5 px-3 w-24 text-right">Tax (%)</th>
-                        <th className="py-2.5 px-3 w-28 text-right">Line Total</th>
+                        <th className="py-2.5 px-3 w-28 text-right">
+                          Line Total
+                        </th>
                         <th className="py-2.5 px-3 w-10 text-center"></th>
                       </tr>
                     </thead>
@@ -386,7 +568,13 @@ export default function VendorBillsPage() {
                             <td className="p-2">
                               <select
                                 value={line.productId}
-                                onChange={(e) => handleLineChange(idx, "productId", e.target.value)}
+                                onChange={(e) =>
+                                  handleLineChange(
+                                    idx,
+                                    "productId",
+                                    e.target.value,
+                                  )
+                                }
                                 className="w-full rounded border border-[var(--border-color)] bg-[var(--bg-primary)] p-1.5 text-xs text-[var(--text-main)]"
                                 required
                               >
@@ -403,7 +591,9 @@ export default function VendorBillsPage() {
                                 type="number"
                                 min="1"
                                 value={line.qty}
-                                onChange={(e) => handleLineChange(idx, "qty", e.target.value)}
+                                onChange={(e) =>
+                                  handleLineChange(idx, "qty", e.target.value)
+                                }
                                 className="w-full rounded border border-[var(--border-color)] bg-[var(--bg-primary)] p-1.5 text-xs text-[var(--text-main)] text-center"
                               />
                             </td>
@@ -413,7 +603,13 @@ export default function VendorBillsPage() {
                                 step="0.01"
                                 min="0"
                                 value={line.unitPrice}
-                                onChange={(e) => handleLineChange(idx, "unitPrice", e.target.value)}
+                                onChange={(e) =>
+                                  handleLineChange(
+                                    idx,
+                                    "unitPrice",
+                                    e.target.value,
+                                  )
+                                }
                                 className="w-full rounded border border-[var(--border-color)] bg-[var(--bg-primary)] p-1.5 text-xs text-[var(--text-main)] text-right"
                               />
                             </td>
@@ -423,7 +619,9 @@ export default function VendorBillsPage() {
                                 step="0.1"
                                 min="0"
                                 value={line.tax}
-                                onChange={(e) => handleLineChange(idx, "tax", e.target.value)}
+                                onChange={(e) =>
+                                  handleLineChange(idx, "tax", e.target.value)
+                                }
                                 className="w-full rounded border border-[var(--border-color)] bg-[var(--bg-primary)] p-1.5 text-xs text-[var(--text-main)] text-right"
                               />
                             </td>

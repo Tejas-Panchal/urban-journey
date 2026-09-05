@@ -348,9 +348,6 @@ export default function ChartOfAccountsPage() {
             <h2 className="text-lg font-black text-[var(--text-main)]">
               Chart of Accounts
             </h2>
-            <p className="text-xs text-[var(--text-muted)] mt-0.5">
-              Click any account item below to edit its configuration in popup modal.
-            </p>
           </div>
           <span className="text-xs font-semibold text-[var(--text-muted)]">
             Total: {accounts.length}

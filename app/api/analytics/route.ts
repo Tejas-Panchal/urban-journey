@@ -3,10 +3,19 @@ import { db } from "@/lib/db";
 import { requireSession, apiError } from "@/lib/api";
 import { z } from "zod";
 
-export async function GET() {
+export async function GET(req: Request) {
   const { error } = await requireSession(["ADMIN", "ACCOUNTANT"]);
   if (error) return error!;
-  return NextResponse.json({ analytics: await db.analytic.findMany({ orderBy: { name: "asc" } }) });
+  const { searchParams } = new URL(req.url);
+  const search = searchParams.get("search") || "";
+  const where = search
+    ? {
+        OR: [
+          { name: { contains: search, mode: "insensitive" as const } },
+        ],
+      }
+    : {};
+  return NextResponse.json({ analytics: await db.analytic.findMany({ where, orderBy: { name: "asc" } }) });
 }
 export async function POST(req: Request) {
   const { error } = await requireSession(["ADMIN", "ACCOUNTANT"]);

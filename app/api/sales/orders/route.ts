@@ -7,7 +7,16 @@ import { lineSubtotal, lineTaxAmount, lineGrandTotal, nextSoNo } from "@/lib/acc
 export async function GET() {
   const { error } = await requireSession(["ADMIN", "ACCOUNTANT"]);
   if (error) return error!;
-  return NextResponse.json({ orders: await db.salesOrder.findMany({ include: { customer: true, lines: { include: { product: true } } }, orderBy: { createdAt: "desc" } }) });
+  const orders = await db.salesOrder.findMany({ include: { customer: true, lines: true }, orderBy: { createdAt: "desc" } });
+  const invoices = await db.customerInvoice.findMany({
+    where: { soId: { in: orders.map(o => o.id) } },
+    select: { id: true, no: true, soId: true, status: true, total: true }
+  });
+  const ordersWithInvoice = orders.map(o => ({
+    ...o,
+    invoice: invoices.find(inv => inv.soId === o.id) || null
+  }));
+  return NextResponse.json({ orders: ordersWithInvoice });
 }
 export async function POST(req: Request) {
   const { error } = await requireSession(["ADMIN", "ACCOUNTANT"]);

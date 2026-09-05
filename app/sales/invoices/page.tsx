@@ -166,6 +166,24 @@ export default function CustomerInvoicesPage() {
     }
   };
 
+  const handleConfirmInvoice = async (invoiceId: string) => {
+    try {
+      const res = await fetch(`/api/sales/invoices/${invoiceId}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "confirm" }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error || "Failed to confirm invoice");
+      await loadData();
+      if (viewDetailInvoice && viewDetailInvoice.id === invoiceId) {
+        setViewDetailInvoice((prev: any) => (prev ? { ...prev, status: "CONFIRMED" } : null));
+      }
+    } catch (err: any) {
+      alert(err.message || "Failed to confirm invoice");
+    }
+  };
+
   const formatCurrency = (val: number) =>
     new Intl.NumberFormat("en-IN", { style: "currency", currency: "INR" }).format(val);
 
@@ -185,9 +203,6 @@ export default function CustomerInvoicesPage() {
           <h1 className="text-2xl font-black tracking-tight text-[var(--text-main)]">
             Customer Invoices (AR)
           </h1>
-          <p className="mt-1 text-xs text-[var(--text-muted)]">
-            Manage sales receivables, tax details, and payment registrations.
-          </p>
         </div>
         <div className="flex items-center gap-3">
           <button
@@ -281,14 +296,21 @@ export default function CustomerInvoicesPage() {
                       </span>
                     </td>
                     <td className="py-3.5 px-4 text-center" onClick={(e) => e.stopPropagation()}>
-                      {i.due > 0 && (
+                      {i.status === "DRAFT" ? (
+                        <button
+                          onClick={() => handleConfirmInvoice(i.id)}
+                          className="btn-outline text-[11px] py-1 px-2.5 flex items-center justify-center gap-1 mx-auto border-emerald-500/40 text-emerald-400 hover:bg-emerald-500/10 font-bold"
+                        >
+                          ✓ Confirm
+                        </button>
+                      ) : i.due > 0 ? (
                         <button
                           onClick={() => openPaymentModal(i)}
                           className="btn-outline text-[11px] py-1 px-2.5 flex items-center justify-center gap-1 mx-auto"
                         >
                           <CreditCardIcon className="h-3.5 w-3.5" /> Pay
                         </button>
-                      )}
+                      ) : null}
                     </td>
                   </tr>
                 ))}
@@ -362,7 +384,15 @@ export default function CustomerInvoicesPage() {
                 <span className="font-bold text-emerald-400 text-sm">{formatCurrency(viewDetailInvoice.total || 0)}</span>
               </div>
               <div className="flex gap-2">
-                {viewDetailInvoice.due > 0 && (
+                {viewDetailInvoice.status === "DRAFT" && (
+                  <button
+                    onClick={() => handleConfirmInvoice(viewDetailInvoice.id)}
+                    className="btn-outline px-4 py-2 text-xs font-bold rounded-lg bg-emerald-500/20 text-emerald-300 border-emerald-500/40 hover:bg-emerald-500/30"
+                  >
+                    Confirm Invoice
+                  </button>
+                )}
+                {viewDetailInvoice.status !== "DRAFT" && viewDetailInvoice.due > 0 && (
                   <button
                     onClick={() => {
                       const inv = viewDetailInvoice;

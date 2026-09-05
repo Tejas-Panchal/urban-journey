@@ -1,6 +1,6 @@
 "use client";
 import React, { useEffect, useState } from "react";
-import Link from "next/link";
+import Modal from "@/components/Modal";
 
 interface LineItem {
   productId: string;
@@ -17,6 +17,7 @@ export default function SalesOrdersPage() {
   const [q, setQ] = useState("");
   const [statusFilter, setStatusFilter] = useState("ALL");
   const [showModal, setShowModal] = useState(false);
+  const [viewDetailOrder, setViewDetailOrder] = useState<any>(null);
 
   // Form state
   const [customerId, setCustomerId] = useState("");
@@ -31,9 +32,15 @@ export default function SalesOrdersPage() {
     setLoading(true);
     try {
       const [soRes, contactRes, prodRes] = await Promise.all([
-        fetch("/api/sales/orders").then((r) => r.json().catch(() => ({ orders: [] }))).catch(() => ({ orders: [] })),
-        fetch("/api/contacts").then((r) => r.json().catch(() => ({ contacts: [] }))).catch(() => ({ contacts: [] })),
-        fetch("/api/products").then((r) => r.json().catch(() => ({ products: [] }))).catch(() => ({ products: [] })),
+        fetch("/api/sales/orders")
+          .then((r) => r.json().catch(() => ({ orders: [] })))
+          .catch(() => ({ orders: [] })),
+        fetch("/api/contacts")
+          .then((r) => r.json().catch(() => ({ contacts: [] })))
+          .catch(() => ({ contacts: [] })),
+        fetch("/api/products")
+          .then((r) => r.json().catch(() => ({ products: [] })))
+          .catch(() => ({ products: [] })),
       ]);
       setOrders(soRes.orders || []);
       setContacts(contactRes.contacts || []);
@@ -89,7 +96,9 @@ export default function SalesOrdersPage() {
       return;
     }
     if (lines.some((l) => !l.productId || l.qty <= 0)) {
-      setErrorMsg("Please ensure all line items have a product and positive quantity.");
+      setErrorMsg(
+        "Please ensure all line items have a product and positive quantity.",
+      );
       return;
     }
 
@@ -116,6 +125,39 @@ export default function SalesOrdersPage() {
     }
   };
 
+  const handleConfirmOrder = async (orderId: string) => {
+    try {
+      const res = await fetch(`/api/sales/orders/${orderId}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "confirm" }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok)
+        throw new Error(data.error || "Failed to confirm sales order");
+      loadData();
+    } catch (err: any) {
+      alert(err.message || "Failed to confirm sales order");
+    }
+  };
+
+  const handleCreateInvoiceFromOrder = async (orderId: string) => {
+    try {
+      const res = await fetch(`/api/sales/orders/${orderId}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "create-invoice" }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error || "Failed to create invoice");
+      alert("Invoice created successfully from Sales Order!");
+      setViewDetailOrder(null);
+      loadData();
+    } catch (err: any) {
+      alert(err.message || "Failed to create invoice");
+    }
+  };
+
   const filteredOrders = orders.filter((o) => {
     const matchesQ =
       o.no.toLowerCase().includes(q.toLowerCase()) ||
@@ -125,7 +167,10 @@ export default function SalesOrdersPage() {
   });
 
   const formatCurrency = (val: number) =>
-    new Intl.NumberFormat("en-IN", { style: "currency", currency: "INR" }).format(val);
+    new Intl.NumberFormat("en-IN", {
+      style: "currency",
+      currency: "INR",
+    }).format(val);
 
   return (
     <main className="mx-auto max-w-7xl px-6 py-8">
@@ -135,9 +180,6 @@ export default function SalesOrdersPage() {
           <h1 className="text-2xl font-black tracking-tight text-[var(--text-main)]">
             Sales Orders
           </h1>
-          <p className="mt-1 text-xs text-[var(--text-muted)]">
-            Manage customer quotations and confirmed sales orders.
-          </p>
         </div>
         <div className="flex items-center gap-3">
           <button
@@ -199,11 +241,17 @@ export default function SalesOrdersPage() {
                   <th className="py-3.5 px-4 text-right">Tax Total</th>
                   <th className="py-3.5 px-4 text-right">Total Amount</th>
                   <th className="py-3.5 px-4 text-center">Status</th>
+                  <th className="py-3.5 px-4 text-center">Linked Invoice</th>
+                  <th className="py-3.5 px-4 text-center">Action</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-[var(--border-color)]/60">
                 {filteredOrders.map((o) => (
-                  <tr key={o.id} className="hover:bg-[var(--card-hover)] transition-colors">
+                  <tr
+                    key={o.id}
+                    onClick={() => setViewDetailOrder(o)}
+                    className="hover:bg-[var(--card-hover)] transition-colors cursor-pointer"
+                  >
                     <td className="py-3.5 px-4 font-mono font-bold text-[var(--text-main)]">
                       {o.no}
                     </td>
@@ -211,7 +259,9 @@ export default function SalesOrdersPage() {
                       {new Date(o.date).toLocaleDateString()}
                     </td>
                     <td className="py-3.5 px-4 font-medium text-[var(--text-main)]">
-                      {o.customer?.name || contacts.find((c) => c.id === o.customerId)?.name || o.customerId}
+                      {o.customer?.name ||
+                        contacts.find((c) => c.id === o.customerId)?.name ||
+                        o.customerId}
                     </td>
                     <td className="py-3.5 px-4 text-right text-[var(--text-muted)]">
                       {formatCurrency(o.subtotal || 0)}
@@ -227,6 +277,36 @@ export default function SalesOrdersPage() {
                         {o.status}
                       </span>
                     </td>
+                    <td className="py-3.5 px-4 text-center">
+                      {o.invoice ? (
+                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[11px] font-mono font-bold bg-sky-500/10 text-sky-400 border border-sky-500/30">
+                          📄 {o.invoice.no}
+                        </span>
+                      ) : (
+                        <span className="text-[var(--text-muted)] font-mono text-[11px]">-</span>
+                      )}
+                    </td>
+                    <td
+                      className="py-3.5 px-4 text-center"
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      {(o.status === "DRAFT" || o.status === "QUOTATION") && (
+                        <button
+                          onClick={() => handleConfirmOrder(o.id)}
+                          className="btn-outline text-[11px] py-1 px-2.5 flex items-center justify-center gap-1 mx-auto border-emerald-500/40 text-emerald-400 hover:bg-emerald-500/10 font-bold"
+                        >
+                          ✓ Confirm
+                        </button>
+                      )}
+                      {o.status === "CONFIRMED" && !o.invoice && (
+                        <button
+                          onClick={() => handleCreateInvoiceFromOrder(o.id)}
+                          className="btn-outline text-[11px] py-1 px-2.5 flex items-center justify-center gap-1 mx-auto border-sky-500/40 text-sky-400 hover:bg-sky-500/10 font-bold"
+                        >
+                          + Create Invoice
+                        </button>
+                      )}
+                    </td>
                   </tr>
                 ))}
               </tbody>
@@ -235,12 +315,167 @@ export default function SalesOrdersPage() {
         </div>
       </div>
 
+      {/* --- SALES ORDER DETAIL POPUP COMPONENT (MODAL) --- */}
+      <Modal
+        isOpen={Boolean(viewDetailOrder)}
+        onClose={() => setViewDetailOrder(null)}
+        title={`Sales Order ${viewDetailOrder?.no || ""}`}
+        maxWidth="max-w-3xl"
+      >
+        {viewDetailOrder && (
+          <div className="space-y-4 text-xs">
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 p-4 rounded-lg bg-[var(--badge-bg)] border border-[var(--border-color)]">
+              <div>
+                <span className="text-[var(--text-muted)] block text-[10px] uppercase font-bold">
+                  SO Ref
+                </span>
+                <span className="font-mono font-bold text-[var(--text-main)]">
+                  {viewDetailOrder.no}
+                </span>
+              </div>
+              <div>
+                <span className="text-[var(--text-muted)] block text-[10px] uppercase font-bold">
+                  Customer
+                </span>
+                <span className="font-bold text-[var(--text-main)]">
+                  {viewDetailOrder.customer?.name ||
+                    contacts.find((c) => c.id === viewDetailOrder.customerId)
+                      ?.name ||
+                    viewDetailOrder.customerId}
+                </span>
+              </div>
+              <div>
+                <span className="text-[var(--text-muted)] block text-[10px] uppercase font-bold">
+                  Order Date
+                </span>
+                <span className="font-mono text-[var(--text-main)]">
+                  {new Date(viewDetailOrder.date).toLocaleDateString()}
+                </span>
+              </div>
+              <div>
+                <span className="text-[var(--text-muted)] block text-[10px] uppercase font-bold">
+                  Status
+                </span>
+                <span className="font-bold text-emerald-400">
+                  {viewDetailOrder.status}
+                </span>
+              </div>
+            </div>
+
+            {viewDetailOrder.invoice && (
+              <div className="p-3 rounded-lg bg-sky-500/10 border border-sky-500/30 flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <span className="text-sky-400 font-bold">📄 Linked Customer Invoice:</span>
+                  <span className="font-mono font-bold text-[var(--text-main)] text-xs">{viewDetailOrder.invoice.no}</span>
+                  <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-sky-500/20 text-sky-300 uppercase">
+                    {viewDetailOrder.invoice.status}
+                  </span>
+                </div>
+                <a
+                  href="/sales/invoices"
+                  className="text-xs font-bold text-sky-400 hover:underline"
+                >
+                  View Invoices →
+                </a>
+              </div>
+            )}
+
+            <div className="space-y-2">
+              <h4 className="font-bold text-xs text-[var(--text-main)]">
+                Order Line Items
+              </h4>
+              <div className="overflow-hidden rounded-lg border border-[var(--border-color)]">
+                <table className="w-full text-left text-xs">
+                  <thead>
+                    <tr className="border-b border-[var(--border-color)] bg-[var(--badge-bg)] text-[var(--text-muted)] font-bold">
+                      <th className="p-2">Product</th>
+                      <th className="p-2 text-right">Qty</th>
+                      <th className="p-2 text-right">Unit Price</th>
+                      <th className="p-2 text-right">Tax (%)</th>
+                      <th className="p-2 text-right">Total</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-[var(--border-color)]/60 font-mono">
+                    {(viewDetailOrder.lines || []).map((l: any, idx: number) => (
+                      <tr key={l.id || idx}>
+                        <td className="p-2 font-sans font-semibold">
+                          {l.product?.name ||
+                            products.find((p) => p.id === l.productId)?.name ||
+                            l.productId}
+                        </td>
+                        <td className="p-2 text-right">{l.qty}</td>
+                        <td className="p-2 text-right">
+                          {formatCurrency(l.unitPrice)}
+                        </td>
+                        <td className="p-2 text-right">{l.tax || 0}%</td>
+                        <td className="p-2 text-right font-bold">
+                          {formatCurrency(l.total)}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            <div className="flex justify-between items-center pt-3 border-t border-[var(--border-color)]">
+              <div className="text-[11px] font-mono">
+                <span className="text-[var(--text-muted)]">Total Amount: </span>
+                <span className="font-bold text-emerald-400 text-sm">
+                  {formatCurrency(viewDetailOrder.total || 0)}
+                </span>
+              </div>
+              <div className="flex gap-2">
+                {(viewDetailOrder.status === "DRAFT" ||
+                  viewDetailOrder.status === "QUOTATION") && (
+                  <button
+                    onClick={() => {
+                      const id = viewDetailOrder.id;
+                      handleConfirmOrder(id);
+                      setViewDetailOrder((prev: any) =>
+                        prev ? { ...prev, status: "CONFIRMED" } : null,
+                      );
+                    }}
+                    className="btn-outline px-4 py-2 text-xs font-bold rounded-lg bg-emerald-500/20 text-emerald-300 border-emerald-500/40 hover:bg-emerald-500/30"
+                  >
+                    Confirm Order
+                  </button>
+                )}
+                {viewDetailOrder.status === "CONFIRMED" && !viewDetailOrder.invoice && (
+                  <button
+                    onClick={() =>
+                      handleCreateInvoiceFromOrder(viewDetailOrder.id)
+                    }
+                    className="btn-outline px-4 py-2 text-xs font-bold rounded-lg bg-sky-500/20 text-sky-300 border-sky-500/40 hover:bg-sky-500/30"
+                  >
+                    Create Customer Invoice
+                  </button>
+                )}
+                {viewDetailOrder.invoice && (
+                  <span className="px-3 py-2 text-xs font-mono font-bold rounded-lg bg-sky-500/10 text-sky-400 border border-sky-500/30">
+                    Invoice Created: {viewDetailOrder.invoice.no}
+                  </span>
+                )}
+                <button
+                  onClick={() => setViewDetailOrder(null)}
+                  className="btn-outline px-4 py-2 text-xs font-bold rounded-lg"
+                >
+                  Close
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+      </Modal>
+
       {/* Create Sales Order Modal */}
       {showModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 overflow-y-auto">
           <div className="card-mono w-full max-w-3xl p-6 shadow-2xl">
             <div className="flex items-center justify-between border-b border-[var(--border-color)] pb-4">
-              <h2 className="text-lg font-bold text-[var(--text-main)]">Create New Sales Order</h2>
+              <h2 className="text-lg font-bold text-[var(--text-main)]">
+                Create New Sales Order
+              </h2>
               <button
                 onClick={() => setShowModal(false)}
                 className="text-[var(--text-muted)] hover:text-[var(--text-main)] text-base font-bold"
@@ -299,9 +534,13 @@ export default function SalesOrdersPage() {
                       <tr>
                         <th className="py-2.5 px-3">Product</th>
                         <th className="py-2.5 px-3 w-20">Qty</th>
-                        <th className="py-2.5 px-3 w-28 text-right">Unit Price</th>
+                        <th className="py-2.5 px-3 w-28 text-right">
+                          Unit Price
+                        </th>
                         <th className="py-2.5 px-3 w-24 text-right">Tax (%)</th>
-                        <th className="py-2.5 px-3 w-28 text-right">Line Total</th>
+                        <th className="py-2.5 px-3 w-28 text-right">
+                          Line Total
+                        </th>
                         <th className="py-2.5 px-3 w-10 text-center"></th>
                       </tr>
                     </thead>
@@ -315,7 +554,13 @@ export default function SalesOrdersPage() {
                             <td className="p-2">
                               <select
                                 value={line.productId}
-                                onChange={(e) => handleLineChange(idx, "productId", e.target.value)}
+                                onChange={(e) =>
+                                  handleLineChange(
+                                    idx,
+                                    "productId",
+                                    e.target.value,
+                                  )
+                                }
                                 className="w-full rounded border border-[var(--border-color)] bg-[var(--bg-primary)] p-1.5 text-xs text-[var(--text-main)]"
                                 required
                               >
@@ -332,7 +577,9 @@ export default function SalesOrdersPage() {
                                 type="number"
                                 min="1"
                                 value={line.qty}
-                                onChange={(e) => handleLineChange(idx, "qty", e.target.value)}
+                                onChange={(e) =>
+                                  handleLineChange(idx, "qty", e.target.value)
+                                }
                                 className="w-full rounded border border-[var(--border-color)] bg-[var(--bg-primary)] p-1.5 text-xs text-[var(--text-main)] text-center"
                               />
                             </td>
@@ -342,7 +589,13 @@ export default function SalesOrdersPage() {
                                 step="0.01"
                                 min="0"
                                 value={line.unitPrice}
-                                onChange={(e) => handleLineChange(idx, "unitPrice", e.target.value)}
+                                onChange={(e) =>
+                                  handleLineChange(
+                                    idx,
+                                    "unitPrice",
+                                    e.target.value,
+                                  )
+                                }
                                 className="w-full rounded border border-[var(--border-color)] bg-[var(--bg-primary)] p-1.5 text-xs text-[var(--text-main)] text-right"
                               />
                             </td>
@@ -352,7 +605,9 @@ export default function SalesOrdersPage() {
                                 step="0.1"
                                 min="0"
                                 value={line.tax}
-                                onChange={(e) => handleLineChange(idx, "tax", e.target.value)}
+                                onChange={(e) =>
+                                  handleLineChange(idx, "tax", e.target.value)
+                                }
                                 className="w-full rounded border border-[var(--border-color)] bg-[var(--bg-primary)] p-1.5 text-xs text-[var(--text-main)] text-right"
                               />
                             </td>
@@ -395,7 +650,9 @@ export default function SalesOrdersPage() {
                   </span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-[var(--text-muted)]">Estimated Tax:</span>
+                  <span className="text-[var(--text-muted)]">
+                    Estimated Tax:
+                  </span>
                   <span className="font-semibold text-[var(--text-main)]">
                     {formatCurrency(calculateTax())}
                   </span>

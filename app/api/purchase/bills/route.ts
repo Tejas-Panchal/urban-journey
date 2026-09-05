@@ -7,7 +7,7 @@ import { lineTotal, nextBillNo, postJournal, getAccountIdByName } from "@/lib/ac
 export async function GET() {
   const { error } = await requireSession(["ADMIN", "ACCOUNTANT"]);
   if (error) return error!;
-  const bills = await db.vendorBill.findMany({ include: { vendor: true, lines: { include: { product: true } }, payments: true }, orderBy: { createdAt: "desc" } });
+  const bills = await db.vendorBill.findMany({ include: { vendor: true, lines: true, payments: true }, orderBy: { createdAt: "desc" } });
   return NextResponse.json({ bills });
 }
 
@@ -19,7 +19,13 @@ export async function POST(req: Request) {
     const parsed = vendorBillSchema.safeParse(body);
     if (!parsed.success) return apiError(parsed.error.issues[0]?.message ?? "Invalid input", 400);
 
-    const lines = parsed.data.lines.map(l => ({ ...l, total: lineTotal(l.qty, l.unitPrice) }));
+    const lines = parsed.data.lines.map(l => ({
+      productId: l.productId,
+      analyticId: l.analyticId || null,
+      qty: l.qty,
+      unitPrice: l.unitPrice,
+      total: lineTotal(l.qty, l.unitPrice),
+    }));
     const subtotal = lines.reduce((s, l) => s + l.total, 0);
 
     const billDate = parsed.data.billDate ? new Date(parsed.data.billDate) : new Date();

@@ -144,9 +144,6 @@ export default function AccountingJournalsDashboard() {
               </span>
               Accounting Journals Dashboard
             </h1>
-            <p className="text-xs text-[var(--text-muted)] mt-1 max-w-3xl">
-              Overview of all active financial activity journals, default ledger accounts, draft balances, and entry shortcuts.
-            </p>
           </div>
           <div className="flex gap-2 text-xs font-mono">
             <div className="px-3 py-1.5 rounded-lg bg-[var(--badge-bg)] border border-[var(--border-color)] text-center">

@@ -1,6 +1,7 @@
 "use client";
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import Modal from "@/components/Modal";
 import {
   TrendingUpIcon,
   TrendingDownIcon,
@@ -26,11 +27,15 @@ export default function Dashboard() {
   const [activeTab, setActiveTab] = useState<
     "so" | "inv" | "po" | "bills" | "payments"
   >("inv");
+  const [selectedDoc, setSelectedDoc] = useState<{
+    type: "inv" | "so" | "bills" | "payments";
+    data: any;
+  } | null>(null);
 
   const loadData = async () => {
     setLoading(true);
     try {
-      const [poRes, billsRes, soRes, invRes, budgetsRes, payRes, plRes] =
+      const [poRes, billsRes, soRes, invRes, budgetsRes, payRes, plRes, contactsRes, prodRes] =
         await Promise.all([
           fetch("/api/purchase/orders")
             .then((r) => r.json())
@@ -53,6 +58,12 @@ export default function Dashboard() {
           fetch("/api/reports/profit-loss")
             .then((r) => r.json())
             .catch(() => null),
+          fetch("/api/contacts")
+            .then((r) => r.json())
+            .catch(() => ({ contacts: [] })),
+          fetch("/api/products")
+            .then((r) => r.json())
+            .catch(() => ({ products: [] })),
         ]);
 
       setData({
@@ -63,6 +74,8 @@ export default function Dashboard() {
         budgets: budgetsRes.budgets || [],
         payments: payRes.payments || [],
         pl: plRes,
+        contacts: contactsRes.contacts || [],
+        products: prodRes.products || [],
       });
     } catch (err) {
       console.error("Dashboard data load error:", err);
@@ -75,21 +88,24 @@ export default function Dashboard() {
     loadData();
   }, []);
 
-  // Compute key totals
-  const totalRevenue = data.inv.reduce(
-    (sum: number, i: any) => sum + (i.total || 0),
+  // Compute key totals connected directly with invoices and bills
+  const validInvoices = data.inv.filter((i: any) => i.status !== "DRAFT" && i.status !== "CANCELLED");
+  const validBills = data.bills.filter((b: any) => b.status !== "DRAFT" && b.status !== "CANCELLED");
+
+  const totalRevenue = validInvoices.reduce(
+    (sum: number, i: any) => sum + (i.total || i.subtotal || 0),
     0,
   );
-  const totalExpenses = data.bills.reduce(
-    (sum: number, b: any) => sum + (b.total || 0),
+  const totalExpenses = validBills.reduce(
+    (sum: number, b: any) => sum + (b.total || b.subtotal || 0),
     0,
   );
   const netProfit = totalRevenue - totalExpenses;
-  const totalReceivables = data.inv.reduce(
+  const totalReceivables = validInvoices.reduce(
     (sum: number, i: any) => sum + (i.due || 0),
     0,
   );
-  const totalPayables = data.bills.reduce(
+  const totalPayables = validBills.reduce(
     (sum: number, b: any) => sum + (b.due || 0),
     0,
   );
@@ -133,10 +149,6 @@ export default function Dashboard() {
           <h1 className="text-3xl font-black tracking-tight text-[var(--text-main)]">
             Financial Dashboard
           </h1>
-          <p className="mt-1 text-sm text-[var(--text-muted)]">
-            Real-time accounting analytics, revenue stats, and operational
-            overview.
-          </p>
         </div>
         <div className="flex flex-wrap items-center gap-3">
           <Link
@@ -475,27 +487,23 @@ export default function Dashboard() {
                   data.inv.slice(0, 8).map((item: any) => (
                     <tr
                       key={item.id}
-                      className="hover:bg-[var(--card-hover)] transition-colors"
+                      onClick={() => setSelectedDoc({ type: "inv", data: item })}
+                      className="hover:bg-[var(--card-hover)] transition-colors cursor-pointer"
                     >
                       <td className="py-3 px-3 font-mono font-bold text-[var(--text-main)]">
-                        <Link
-                          href="/sales/invoices"
-                          className="hover:underline"
-                        >
-                          {item.no}
-                        </Link>
+                        {item.no}
                       </td>
                       <td className="py-3 px-3 text-[var(--text-muted)]">
                         {new Date(item.invDate).toLocaleDateString()}
                       </td>
                       <td className="py-3 px-3 font-medium text-[var(--text-main)]">
-                        {item.customer?.name || item.customerId}
+                        {item.customer?.name || (data.contacts || []).find((c: any) => c.id === item.customerId)?.name || item.customerId}
                       </td>
                       <td className="py-3 px-3 text-right font-semibold text-[var(--text-main)]">
-                        {formatCurrency(item.total)}
+                        {formatCurrency(item.total || item.subtotal || 0)}
                       </td>
                       <td className="py-3 px-3 text-right text-[var(--text-muted)]">
-                        {formatCurrency(item.due)}
+                        {formatCurrency(item.due || 0)}
                       </td>
                       <td className="py-3 px-3 text-center">
                         {renderStatusBadge(item.status)}
@@ -507,21 +515,20 @@ export default function Dashboard() {
                   data.so.slice(0, 8).map((item: any) => (
                     <tr
                       key={item.id}
-                      className="hover:bg-[var(--card-hover)] transition-colors"
+                      onClick={() => setSelectedDoc({ type: "so", data: item })}
+                      className="hover:bg-[var(--card-hover)] transition-colors cursor-pointer"
                     >
                       <td className="py-3 px-3 font-mono font-bold text-[var(--text-main)]">
-                        <Link href="/sales/orders" className="hover:underline">
-                          {item.no}
-                        </Link>
+                        {item.no}
                       </td>
                       <td className="py-3 px-3 text-[var(--text-muted)]">
                         {new Date(item.date).toLocaleDateString()}
                       </td>
                       <td className="py-3 px-3 font-medium text-[var(--text-main)]">
-                        {item.customer?.name || item.customerId}
+                        {item.customer?.name || (data.contacts || []).find((c: any) => c.id === item.customerId)?.name || item.customerId}
                       </td>
                       <td className="py-3 px-3 text-right font-semibold text-[var(--text-main)]">
-                        {formatCurrency(item.total)}
+                        {formatCurrency(item.total || item.subtotal || 0)}
                       </td>
                       <td className="py-3 px-3 text-right text-[var(--text-muted)]">
                         -
@@ -536,27 +543,23 @@ export default function Dashboard() {
                   data.bills.slice(0, 8).map((item: any) => (
                     <tr
                       key={item.id}
-                      className="hover:bg-[var(--card-hover)] transition-colors"
+                      onClick={() => setSelectedDoc({ type: "bills", data: item })}
+                      className="hover:bg-[var(--card-hover)] transition-colors cursor-pointer"
                     >
                       <td className="py-3 px-3 font-mono font-bold text-[var(--text-main)]">
-                        <Link
-                          href="/purchase/bills"
-                          className="hover:underline"
-                        >
-                          {item.no}
-                        </Link>
+                        {item.no}
                       </td>
                       <td className="py-3 px-3 text-[var(--text-muted)]">
                         {new Date(item.billDate).toLocaleDateString()}
                       </td>
                       <td className="py-3 px-3 font-medium text-[var(--text-main)]">
-                        {item.vendor?.name || item.vendorId}
+                        {item.vendor?.name || (data.contacts || []).find((c: any) => c.id === item.vendorId)?.name || item.vendorId}
                       </td>
                       <td className="py-3 px-3 text-right font-semibold text-[var(--text-main)]">
-                        {formatCurrency(item.total)}
+                        {formatCurrency(item.total || item.subtotal || 0)}
                       </td>
                       <td className="py-3 px-3 text-right text-[var(--text-muted)]">
-                        {formatCurrency(item.due)}
+                        {formatCurrency(item.due || 0)}
                       </td>
                       <td className="py-3 px-3 text-center">
                         {renderStatusBadge(item.status)}
@@ -568,7 +571,8 @@ export default function Dashboard() {
                   data.payments.slice(0, 8).map((item: any) => (
                     <tr
                       key={item.id}
-                      className="hover:bg-[var(--card-hover)] transition-colors"
+                      onClick={() => setSelectedDoc({ type: "payments", data: item })}
+                      className="hover:bg-[var(--card-hover)] transition-colors cursor-pointer"
                     >
                       <td className="py-3 px-3 font-mono font-bold text-[var(--text-main)]">
                         PAY-{item.id.slice(-6)}
@@ -577,7 +581,7 @@ export default function Dashboard() {
                         {new Date(item.date).toLocaleDateString()}
                       </td>
                       <td className="py-3 px-3 font-medium text-[var(--text-main)]">
-                        {item.partner?.name || item.partnerId}
+                        {item.partner?.name || (data.contacts || []).find((c: any) => c.id === item.partnerId)?.name || item.partnerId}
                       </td>
                       <td className="py-3 px-3 text-right font-semibold text-[var(--text-main)]">
                         {formatCurrency(item.amount)}
@@ -595,6 +599,165 @@ export default function Dashboard() {
           )}
         </div>
       </div>
+
+      {/* --- RECENT TRANSACTION DETAIL POPUP COMPONENT (MODAL) --- */}
+      <Modal
+        isOpen={Boolean(selectedDoc)}
+        onClose={() => setSelectedDoc(null)}
+        title={
+          selectedDoc?.type === "inv"
+            ? `Customer Invoice ${selectedDoc.data?.no || ""}`
+            : selectedDoc?.type === "so"
+            ? `Sales Order ${selectedDoc.data?.no || ""}`
+            : selectedDoc?.type === "bills"
+            ? `Vendor Bill ${selectedDoc.data?.no || ""}`
+            : `Payment Receipt ${selectedDoc?.data?.id ? "PAY-" + selectedDoc.data.id.slice(-6) : ""}`
+        }
+        maxWidth="max-w-3xl"
+      >
+        {selectedDoc && (
+          <div className="space-y-4 text-xs">
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 p-4 rounded-lg bg-[var(--badge-bg)] border border-[var(--border-color)]">
+              <div>
+                <span className="text-[var(--text-muted)] block text-[10px] uppercase font-bold">Doc Ref</span>
+                <span className="font-mono font-bold text-[var(--text-main)]">
+                  {selectedDoc.type === "payments" ? `PAY-${selectedDoc.data.id.slice(-6)}` : selectedDoc.data.no}
+                </span>
+              </div>
+              <div>
+                <span className="text-[var(--text-muted)] block text-[10px] uppercase font-bold">
+                  {selectedDoc.type === "bills" || (selectedDoc.type === "payments" && selectedDoc.data.billId) ? "Vendor" : "Customer"}
+                </span>
+                <span className="font-bold text-[var(--text-main)]">
+                  {selectedDoc.type === "payments"
+                    ? selectedDoc.data.partner?.name || (data.contacts || []).find((c: any) => c.id === selectedDoc.data.partnerId)?.name || selectedDoc.data.partnerId
+                    : selectedDoc.type === "bills"
+                    ? selectedDoc.data.vendor?.name || (data.contacts || []).find((c: any) => c.id === selectedDoc.data.vendorId)?.name || selectedDoc.data.vendorId
+                    : selectedDoc.data.customer?.name || (data.contacts || []).find((c: any) => c.id === selectedDoc.data.customerId)?.name || selectedDoc.data.customerId}
+                </span>
+              </div>
+              <div>
+                <span className="text-[var(--text-muted)] block text-[10px] uppercase font-bold">Date</span>
+                <span className="font-mono text-[var(--text-main)]">
+                  {new Date(selectedDoc.data.invDate || selectedDoc.data.billDate || selectedDoc.data.date).toLocaleDateString()}
+                </span>
+              </div>
+              <div>
+                <span className="text-[var(--text-muted)] block text-[10px] uppercase font-bold">Status</span>
+                <span>{renderStatusBadge(selectedDoc.data.status || "PAID")}</span>
+              </div>
+            </div>
+
+            {selectedDoc.type === "so" && (() => {
+              const linkedInv = (data.invoices || []).find((inv: any) => inv.soId === selectedDoc.data.id);
+              return linkedInv ? (
+                <div className="p-3 rounded-lg bg-sky-500/10 border border-sky-500/30 flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <span className="text-sky-400 font-bold">📄 Linked Customer Invoice:</span>
+                    <span className="font-mono font-bold text-[var(--text-main)] text-xs">{linkedInv.no}</span>
+                    <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-sky-500/20 text-sky-300 uppercase">
+                      {linkedInv.status}
+                    </span>
+                  </div>
+                  <a href="/sales/invoices" className="text-xs font-bold text-sky-400 hover:underline">View Invoices →</a>
+                </div>
+              ) : null;
+            })()}
+
+            {selectedDoc.type === "bills" && selectedDoc.data.poId && (() => {
+              const linkedPo = (data.po || []).find((p: any) => p.id === selectedDoc.data.poId);
+              return linkedPo ? (
+                <div className="p-3 rounded-lg bg-amber-500/10 border border-amber-500/30 flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <span className="text-amber-400 font-bold">📄 Created from Purchase Order:</span>
+                    <span className="font-mono font-bold text-[var(--text-main)] text-xs">{linkedPo.no}</span>
+                  </div>
+                  <a href="/purchase/orders" className="text-xs font-bold text-amber-400 hover:underline">View PO →</a>
+                </div>
+              ) : null;
+            })()}
+
+            {selectedDoc.type === "inv" && selectedDoc.data.soId && (() => {
+              const linkedSo = (data.so || []).find((s: any) => s.id === selectedDoc.data.soId);
+              return linkedSo ? (
+                <div className="p-3 rounded-lg bg-sky-500/10 border border-sky-500/30 flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <span className="text-sky-400 font-bold">📄 Created from Sales Order:</span>
+                    <span className="font-mono font-bold text-[var(--text-main)] text-xs">{linkedSo.no}</span>
+                  </div>
+                  <a href="/sales/orders" className="text-xs font-bold text-sky-400 hover:underline">View SO →</a>
+                </div>
+              ) : null;
+            })()}
+
+            {selectedDoc.type !== "payments" && (
+              <div className="space-y-2">
+                <h4 className="font-bold text-xs text-[var(--text-main)]">Line Items</h4>
+                <div className="overflow-hidden rounded-lg border border-[var(--border-color)]">
+                  <table className="w-full text-left text-xs">
+                    <thead>
+                      <tr className="border-b border-[var(--border-color)] bg-[var(--badge-bg)] text-[var(--text-muted)] font-bold">
+                        <th className="p-2">Product</th>
+                        <th className="p-2 text-right">Qty</th>
+                        <th className="p-2 text-right">Unit Price</th>
+                        <th className="p-2 text-right">Total</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-[var(--border-color)]/60 font-mono">
+                      {(selectedDoc.data.lines || []).map((l: any, idx: number) => (
+                        <tr key={l.id || idx}>
+                          <td className="p-2 font-sans font-semibold">
+                            {l.product?.name || (data.products || []).find((p: any) => p.id === l.productId)?.name || l.productId}
+                          </td>
+                          <td className="p-2 text-right">{l.qty}</td>
+                          <td className="p-2 text-right">{formatCurrency(l.unitPrice)}</td>
+                          <td className="p-2 text-right font-bold">{formatCurrency(l.total)}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
+
+            {selectedDoc.type === "payments" && (
+              <div className="p-4 rounded-lg bg-[var(--card-bg)] border border-[var(--border-color)] space-y-2 font-mono">
+                <div className="flex justify-between">
+                  <span className="text-[var(--text-muted)]">Payment Amount:</span>
+                  <span className="font-bold text-emerald-400 text-sm">{formatCurrency(selectedDoc.data.amount)}</span>
+                </div>
+                <div className="flex justify-between text-xs">
+                  <span className="text-[var(--text-muted)]">Payment Method:</span>
+                  <span className="font-bold">{selectedDoc.data.via}</span>
+                </div>
+                {selectedDoc.data.note && (
+                  <div className="flex justify-between text-xs">
+                    <span className="text-[var(--text-muted)]">Note:</span>
+                    <span>{selectedDoc.data.note}</span>
+                  </div>
+                )}
+              </div>
+            )}
+
+            <div className="flex justify-between items-center pt-3 border-t border-[var(--border-color)]">
+              <div className="text-[11px] font-mono">
+                <span className="text-[var(--text-muted)]">Total Amount: </span>
+                <span className="font-bold text-emerald-400 text-sm">
+                  {formatCurrency(selectedDoc.data.total || selectedDoc.data.subtotal || selectedDoc.data.amount || 0)}
+                </span>
+              </div>
+              <div className="flex gap-2">
+                <button
+                  onClick={() => setSelectedDoc(null)}
+                  className="btn-outline px-4 py-2 text-xs font-bold rounded-lg"
+                >
+                  Close
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+      </Modal>
     </main>
   );
 }

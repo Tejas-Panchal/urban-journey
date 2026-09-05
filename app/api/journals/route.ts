@@ -23,14 +23,44 @@ export async function GET(req: Request) {
     orderBy: { name: "asc" },
   });
 
+  const entries = await db.journalEntry.findMany({
+    include: { lines: true },
+  });
+
   const accounts = await db.account.findMany();
   const accountMap = new Map(accounts.map((a) => [a.id, a]));
 
-  const enrichedJournals = journals.map((j) => ({
-    ...j,
-    defaultDebit: j.defaultDebitId ? accountMap.get(j.defaultDebitId) || null : null,
-    defaultCredit: j.defaultCreditId ? accountMap.get(j.defaultCreditId) || null : null,
-  }));
+  const enrichedJournals = journals.map((j) => {
+    const journalEntries = entries.filter((e) => e.journalId === j.id);
+    const draftCount = journalEntries.filter((e) => e.status === "DRAFT").length;
+    const postedCount = journalEntries.filter((e) => e.status === "POSTED").length;
+    const totalAmount = journalEntries.reduce((sum, e) => {
+      const entryDebit = e.lines.reduce((s, l) => s + l.debit, 0);
+      return sum + entryDebit;
+    }, 0);
+
+    const roundedBalance = Math.round((totalAmount + Number.EPSILON) * 100) / 100;
+    const defaultAccountObj = j.defaultDebitId
+      ? accountMap.get(j.defaultDebitId) || null
+      : j.defaultCreditId
+      ? accountMap.get(j.defaultCreditId) || null
+      : null;
+
+    return {
+      ...j,
+      defaultAccount: defaultAccountObj,
+      defaultDebit: j.defaultDebitId ? accountMap.get(j.defaultDebitId) || null : null,
+      defaultCredit: j.defaultCreditId ? accountMap.get(j.defaultCreditId) || null : null,
+      entriesCount: journalEntries.length,
+      totalAmount: roundedBalance,
+      analytics: {
+        totalEntries: journalEntries.length,
+        draftEntries: draftCount,
+        postedEntries: postedCount,
+        ledgerBalance: roundedBalance,
+      },
+    };
+  });
 
   return NextResponse.json({ journals: enrichedJournals });
 }

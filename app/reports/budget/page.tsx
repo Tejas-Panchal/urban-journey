@@ -33,9 +33,6 @@ export default function BudgetReportPage() {
           <h1 className="text-2xl font-black tracking-tight text-[var(--text-main)]">
             Budget Performance & Variance Report
           </h1>
-          <p className="mt-1 text-xs text-[var(--text-muted)]">
-            Analytical budget allocation vs actual committed costs and variance.
-          </p>
         </div>
         <button
           onClick={loadData}

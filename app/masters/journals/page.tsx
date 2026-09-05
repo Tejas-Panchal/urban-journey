@@ -19,6 +19,8 @@ interface Journal {
   defaultCreditId?: string | null;
   defaultDebit?: Account | null;
   defaultCredit?: Account | null;
+  entriesCount?: number;
+  totalAmount?: number;
 }
 
 const JOURNAL_TYPES = [
@@ -411,9 +413,6 @@ export default function JournalsMasterPage() {
           <div className="p-4 border-b border-[var(--border-color)] bg-[var(--badge-bg)] flex justify-between items-center">
             <div>
               <h2 className="text-lg font-black text-[var(--text-main)]">Journals Master</h2>
-              <p className="text-xs text-[var(--text-muted)] mt-0.5">
-                Click any journal item to open its settings popup component.
-              </p>
             </div>
             <span className="text-xs font-semibold text-[var(--text-muted)]">Total: {journals.length}</span>
           </div>
@@ -431,6 +430,7 @@ export default function JournalsMasterPage() {
                     <th className="py-3.5 px-4">Type</th>
                     <th className="py-3.5 px-4">Default Debit Account</th>
                     <th className="py-3.5 px-4">Default Credit Account</th>
+                    <th className="py-3.5 px-4 text-right">Total Transacted Volume</th>
                     <th className="py-3.5 px-4 text-right">Actions</th>
                   </tr>
                 </thead>
@@ -457,6 +457,9 @@ export default function JournalsMasterPage() {
                       </td>
                       <td className="py-3.5 px-4 font-mono text-[var(--text-muted)]">
                         {j.defaultCredit ? `${j.defaultCredit.name} (${j.defaultCredit.type})` : "—"}
+                      </td>
+                      <td className="py-3.5 px-4 text-right font-mono font-bold text-emerald-400">
+                        ₹{(j.totalAmount || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}
                       </td>
                       <td className="py-3.5 px-4 text-right space-x-2" onClick={(e) => e.stopPropagation()}>
                         <button

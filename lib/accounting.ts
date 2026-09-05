@@ -119,7 +119,7 @@ export async function getJournalIdByType(
  * Strict Double-Entry Rule with 2-Decimal Precision & Non-Negative Checks
  */
 export function checkBalanced(
-  lines: { debit?: number; credit?: number; lineLabel?: string; narration?: string }[]
+  lines: { debit?: number; credit?: number; lineLabel?: string | null; narration?: string | null }[]
 ) {
   let totalDebit = 0;
   let totalCredit = 0;
@@ -193,7 +193,7 @@ export async function createJournalEntry(
   }
 
   const entryDate = opts.date ? new Date(opts.date) : new Date();
-  const entryNumber = opts.entryNumber || (await generateEntryNumber(tx, journalId, entryDate));
+  const entryNumber = opts.entryNumber || (await generateEntryNumber(tx, journalId!, entryDate));
 
   return tx.journalEntry.create({
     data: {

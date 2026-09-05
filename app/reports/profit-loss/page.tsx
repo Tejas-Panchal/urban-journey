@@ -43,9 +43,6 @@ export default function ProfitLossReportPage() {
               Profit & Loss Statement (Income Statement)
             </h1>
           </div>
-          <p className="mt-1 text-xs text-[var(--text-muted)]">
-            Statement of Earnings: Net Operating Income = Total Revenue − Total Expenses
-          </p>
         </div>
         <div className="flex items-center gap-3">
           <button

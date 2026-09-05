@@ -10,9 +10,32 @@ export async function GET(req: Request) {
   const { error } = await requireSession(["ADMIN", "ACCOUNTANT"]);
   if (error) return error!;
   const { searchParams } = new URL(req.url);
-  const journalId = searchParams.get("journalId") ?? undefined;
-  const entries = await db.journalEntry.findMany({ where: { journalId }, include: { lines: true }, orderBy: { createdAt: "desc" }, take: 200 });
-  return NextResponse.json({ entries });
+  const journalId = searchParams.get("journalId") || undefined;
+  const where = journalId ? { journalId } : {};
+  const entries = await db.journalEntry.findMany({
+    where,
+    include: {
+      journal: true,
+      lines: true,
+    },
+    orderBy: { createdAt: "desc" },
+    take: 200,
+  });
+  const accounts = await db.account.findMany();
+  const partners = await db.contact.findMany();
+  const accountMap = new Map(accounts.map((a) => [a.id, a]));
+  const partnerMap = new Map(partners.map((p) => [p.id, p]));
+
+  const enrichedEntries = entries.map((entry) => ({
+    ...entry,
+    lines: entry.lines.map((line) => ({
+      ...line,
+      account: line.accountId ? accountMap.get(line.accountId) || null : null,
+      partner: line.partnerId ? partnerMap.get(line.partnerId) || null : null,
+    })),
+  }));
+
+  return NextResponse.json({ entries: enrichedEntries });
 }
 export async function POST(req: Request) {
   const { error } = await requireSession(["ADMIN", "ACCOUNTANT"]);

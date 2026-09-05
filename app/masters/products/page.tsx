@@ -487,9 +487,6 @@ export default function ProductsMasterPage() {
           <div className="p-4 border-b border-[var(--border-color)] bg-[var(--badge-bg)] flex justify-between items-center">
             <div>
               <h2 className="text-lg font-black text-[var(--text-main)]">Products Master</h2>
-              <p className="text-xs text-[var(--text-muted)] mt-0.5">
-                Click any product item to edit details in popup component.
-              </p>
             </div>
             <span className="text-xs font-semibold text-[var(--text-muted)]">Total: {products.length}</span>
           </div>

@@ -1,5 +1,6 @@
 "use client";
 import React, { useEffect, useState } from "react";
+import Modal from "@/components/Modal";
 
 interface LineItem {
   productId: string;
@@ -16,6 +17,7 @@ export default function PurchaseOrdersPage() {
   const [q, setQ] = useState("");
   const [statusFilter, setStatusFilter] = useState("ALL");
   const [showModal, setShowModal] = useState(false);
+  const [viewDetailOrder, setViewDetailOrder] = useState<any>(null);
 
   // Form state
   const [vendorId, setVendorId] = useState("");
@@ -30,9 +32,15 @@ export default function PurchaseOrdersPage() {
     setLoading(true);
     try {
       const [poRes, contactRes, prodRes] = await Promise.all([
-        fetch("/api/purchase/orders").then((r) => r.json().catch(() => ({ orders: [] }))).catch(() => ({ orders: [] })),
-        fetch("/api/contacts").then((r) => r.json().catch(() => ({ contacts: [] }))).catch(() => ({ contacts: [] })),
-        fetch("/api/products").then((r) => r.json().catch(() => ({ products: [] }))).catch(() => ({ products: [] })),
+        fetch("/api/purchase/orders")
+          .then((r) => r.json().catch(() => ({ orders: [] })))
+          .catch(() => ({ orders: [] })),
+        fetch("/api/contacts")
+          .then((r) => r.json().catch(() => ({ contacts: [] })))
+          .catch(() => ({ contacts: [] })),
+        fetch("/api/products")
+          .then((r) => r.json().catch(() => ({ products: [] })))
+          .catch(() => ({ products: [] })),
       ]);
       setOrders(poRes.orders || []);
       setContacts(contactRes.contacts || []);
@@ -72,7 +80,8 @@ export default function PurchaseOrdersPage() {
     setLines(next);
   };
 
-  const calculateSubtotal = () => lines.reduce((s, l) => s + l.qty * l.unitPrice, 0);
+  const calculateSubtotal = () =>
+    lines.reduce((s, l) => s + l.qty * l.unitPrice, 0);
   const calculateTax = () =>
     lines.reduce((s, l) => s + l.qty * l.unitPrice * ((l.tax || 0) / 100), 0);
   const calculateTotal = () => calculateSubtotal() + calculateTax();
@@ -85,7 +94,9 @@ export default function PurchaseOrdersPage() {
       return;
     }
     if (lines.some((l) => !l.productId || l.qty <= 0)) {
-      setErrorMsg("Please ensure all line items have a product and positive quantity.");
+      setErrorMsg(
+        "Please ensure all line items have a product and positive quantity.",
+      );
       return;
     }
 
@@ -97,7 +108,8 @@ export default function PurchaseOrdersPage() {
         body: JSON.stringify({ vendorId, date, lines }),
       });
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "Failed to create Purchase Order");
+      if (!res.ok)
+        throw new Error(data.error || "Failed to create Purchase Order");
       setShowModal(false);
       loadData();
     } catch (err: any) {
@@ -107,8 +119,44 @@ export default function PurchaseOrdersPage() {
     }
   };
 
+  const handleConfirmOrder = async (orderId: string) => {
+    try {
+      const res = await fetch(`/api/purchase/orders/${orderId}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "confirm" }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok)
+        throw new Error(data.error || "Failed to confirm purchase order");
+      loadData();
+    } catch (err: any) {
+      alert(err.message || "Failed to confirm purchase order");
+    }
+  };
+
+  const handleCreateBillFromOrder = async (orderId: string) => {
+    try {
+      const res = await fetch(`/api/purchase/orders/${orderId}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "create-bill" }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error || "Failed to create bill");
+      alert("Vendor Bill created successfully from Purchase Order!");
+      setViewDetailOrder(null);
+      loadData();
+    } catch (err: any) {
+      alert(err.message || "Failed to create bill");
+    }
+  };
+
   const formatCurrency = (val: number) =>
-    new Intl.NumberFormat("en-IN", { style: "currency", currency: "INR" }).format(val);
+    new Intl.NumberFormat("en-IN", {
+      style: "currency",
+      currency: "INR",
+    }).format(val);
 
   const filteredOrders = orders.filter((o) => {
     const matchesQ =
@@ -126,9 +174,6 @@ export default function PurchaseOrdersPage() {
           <h1 className="text-2xl font-black tracking-tight text-[var(--text-main)]">
             Purchase Orders
           </h1>
-          <p className="mt-1 text-xs text-[var(--text-muted)]">
-            Manage vendor purchase orders and procurement requests.
-          </p>
         </div>
         <button
           onClick={() => setShowModal(true)}
@@ -186,11 +231,17 @@ export default function PurchaseOrdersPage() {
                   <th className="py-3.5 px-4 text-right">Tax Total</th>
                   <th className="py-3.5 px-4 text-right">Total Amount</th>
                   <th className="py-3.5 px-4 text-center">Status</th>
+                  <th className="py-3.5 px-4 text-center">Linked Bill</th>
+                  <th className="py-3.5 px-4 text-center">Action</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-[var(--border-color)]/60">
                 {filteredOrders.map((o) => (
-                  <tr key={o.id} className="hover:bg-[var(--card-hover)] transition-colors">
+                  <tr
+                    key={o.id}
+                    onClick={() => setViewDetailOrder(o)}
+                    className="hover:bg-[var(--card-hover)] transition-colors cursor-pointer"
+                  >
                     <td className="py-3.5 px-4 font-mono font-bold text-[var(--text-main)]">
                       {o.no}
                     </td>
@@ -198,7 +249,9 @@ export default function PurchaseOrdersPage() {
                       {new Date(o.date).toLocaleDateString()}
                     </td>
                     <td className="py-3.5 px-4 font-medium text-[var(--text-main)]">
-                      {o.vendor?.name || contacts.find((c) => c.id === o.vendorId)?.name || o.vendorId}
+                      {o.vendor?.name ||
+                        contacts.find((c) => c.id === o.vendorId)?.name ||
+                        o.vendorId}
                     </td>
                     <td className="py-3.5 px-4 text-right text-[var(--text-muted)]">
                       {formatCurrency(o.subtotal || 0)}
@@ -207,12 +260,44 @@ export default function PurchaseOrdersPage() {
                       {formatCurrency(o.taxTotal || 0)}
                     </td>
                     <td className="py-3.5 px-4 text-right font-bold text-[var(--text-main)]">
-                      {formatCurrency(o.total || 0)}
+                      {formatCurrency(o.total || o.subtotal || 0)}
                     </td>
                     <td className="py-3.5 px-4 text-center">
                       <span className="inline-flex items-center rounded-full border border-[var(--border-color)] bg-[var(--badge-bg)] px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider text-[var(--text-main)]">
                         {o.status}
                       </span>
+                    </td>
+                    <td className="py-3.5 px-4 text-center">
+                      {o.bill ? (
+                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[11px] font-mono font-bold bg-amber-500/10 text-amber-400 border border-amber-500/30">
+                          📄 {o.bill.no}
+                        </span>
+                      ) : (
+                        <span className="text-[var(--text-muted)] font-mono text-[11px]">
+                          -
+                        </span>
+                      )}
+                    </td>
+                    <td
+                      className="py-3.5 px-4 text-center"
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      {o.status === "DRAFT" && (
+                        <button
+                          onClick={() => handleConfirmOrder(o.id)}
+                          className="btn-outline text-[11px] py-1 px-2.5 flex items-center justify-center gap-1 mx-auto border-emerald-500/40 text-emerald-400 hover:bg-emerald-500/10 font-bold"
+                        >
+                          ✓ Confirm
+                        </button>
+                      )}
+                      {o.status === "CONFIRMED" && !o.bill && (
+                        <button
+                          onClick={() => handleCreateBillFromOrder(o.id)}
+                          className="btn-outline text-[11px] py-1 px-2.5 flex items-center justify-center gap-1 mx-auto border-amber-500/40 text-amber-400 hover:bg-amber-500/10 font-bold"
+                        >
+                          + Create Bill
+                        </button>
+                      )}
                     </td>
                   </tr>
                 ))}
@@ -222,12 +307,171 @@ export default function PurchaseOrdersPage() {
         </div>
       </div>
 
+      {/* --- PURCHASE ORDER DETAIL POPUP COMPONENT (MODAL) --- */}
+      <Modal
+        isOpen={Boolean(viewDetailOrder)}
+        onClose={() => setViewDetailOrder(null)}
+        title={`Purchase Order ${viewDetailOrder?.no || ""}`}
+        maxWidth="max-w-3xl"
+      >
+        {viewDetailOrder && (
+          <div className="space-y-4 text-xs">
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 p-4 rounded-lg bg-[var(--badge-bg)] border border-[var(--border-color)]">
+              <div>
+                <span className="text-[var(--text-muted)] block text-[10px] uppercase font-bold">
+                  PO Ref
+                </span>
+                <span className="font-mono font-bold text-[var(--text-main)]">
+                  {viewDetailOrder.no}
+                </span>
+              </div>
+              <div>
+                <span className="text-[var(--text-muted)] block text-[10px] uppercase font-bold">
+                  Vendor
+                </span>
+                <span className="font-bold text-[var(--text-main)]">
+                  {viewDetailOrder.vendor?.name ||
+                    contacts.find((c) => c.id === viewDetailOrder.vendorId)
+                      ?.name ||
+                    viewDetailOrder.vendorId}
+                </span>
+              </div>
+              <div>
+                <span className="text-[var(--text-muted)] block text-[10px] uppercase font-bold">
+                  Order Date
+                </span>
+                <span className="font-mono text-[var(--text-main)]">
+                  {new Date(viewDetailOrder.date).toLocaleDateString()}
+                </span>
+              </div>
+              <div>
+                <span className="text-[var(--text-muted)] block text-[10px] uppercase font-bold">
+                  Status
+                </span>
+                <span className="font-bold text-emerald-400">
+                  {viewDetailOrder.status}
+                </span>
+              </div>
+            </div>
+
+            {viewDetailOrder.bill && (
+              <div className="p-3 rounded-lg bg-amber-500/10 border border-amber-500/30 flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <span className="text-amber-400 font-bold">
+                    📄 Linked Vendor Bill:
+                  </span>
+                  <span className="font-mono font-bold text-[var(--text-main)] text-xs">
+                    {viewDetailOrder.bill.no}
+                  </span>
+                  <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-amber-500/20 text-amber-300 uppercase">
+                    {viewDetailOrder.bill.status}
+                  </span>
+                </div>
+                <a
+                  href="/purchase/bills"
+                  className="text-xs font-bold text-amber-400 hover:underline"
+                >
+                  View Bills →
+                </a>
+              </div>
+            )}
+
+            <div className="space-y-2">
+              <h4 className="font-bold text-xs text-[var(--text-main)]">
+                Order Line Items
+              </h4>
+              <div className="overflow-hidden rounded-lg border border-[var(--border-color)]">
+                <table className="w-full text-left text-xs">
+                  <thead>
+                    <tr className="border-b border-[var(--border-color)] bg-[var(--badge-bg)] text-[var(--text-muted)] font-bold">
+                      <th className="p-2">Product</th>
+                      <th className="p-2 text-right">Qty</th>
+                      <th className="p-2 text-right">Unit Price</th>
+                      <th className="p-2 text-right">Total</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-[var(--border-color)]/60 font-mono">
+                    {(viewDetailOrder.lines || []).map((l: any, idx: number) => (
+                      <tr key={l.id || idx}>
+                        <td className="p-2 font-sans font-semibold">
+                          {l.product?.name ||
+                            products.find((p) => p.id === l.productId)?.name ||
+                            l.productId}
+                        </td>
+                        <td className="p-2 text-right">{l.qty}</td>
+                        <td className="p-2 text-right">
+                          {formatCurrency(l.unitPrice)}
+                        </td>
+                        <td className="p-2 text-right font-bold">
+                          {formatCurrency(l.total)}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            <div className="flex justify-between items-center pt-3 border-t border-[var(--border-color)]">
+              <div className="text-[11px] font-mono">
+                <span className="text-[var(--text-muted)]">
+                  Subtotal Amount:{" "}
+                </span>
+                <span className="font-bold text-emerald-400 text-sm">
+                  {formatCurrency(viewDetailOrder.subtotal || 0)}
+                </span>
+              </div>
+              <div className="flex gap-2">
+                {viewDetailOrder.status === "DRAFT" && (
+                  <button
+                    onClick={() => {
+                      const id = viewDetailOrder.id;
+                      handleConfirmOrder(id);
+                      setViewDetailOrder((prev: any) =>
+                        prev ? { ...prev, status: "CONFIRMED" } : null,
+                      );
+                    }}
+                    className="btn-outline px-4 py-2 text-xs font-bold rounded-lg bg-emerald-500/20 text-emerald-300 border-emerald-500/40 hover:bg-emerald-500/30"
+                  >
+                    Confirm Order
+                  </button>
+                )}
+                {viewDetailOrder.status === "CONFIRMED" &&
+                  !viewDetailOrder.bill && (
+                    <button
+                      onClick={() =>
+                        handleCreateBillFromOrder(viewDetailOrder.id)
+                      }
+                      className="btn-outline px-4 py-2 text-xs font-bold rounded-lg bg-sky-500/20 text-sky-300 border-sky-500/40 hover:bg-sky-500/30"
+                    >
+                      Create Vendor Bill
+                    </button>
+                  )}
+                {viewDetailOrder.bill && (
+                  <span className="px-3 py-2 text-xs font-mono font-bold rounded-lg bg-amber-500/10 text-amber-400 border border-amber-500/30">
+                    Bill Created: {viewDetailOrder.bill.no}
+                  </span>
+                )}
+                <button
+                  onClick={() => setViewDetailOrder(null)}
+                  className="btn-outline px-4 py-2 text-xs font-bold rounded-lg"
+                >
+                  Close
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+      </Modal>
+
       {/* Modal Form */}
       {showModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 overflow-y-auto">
           <div className="card-mono w-full max-w-3xl p-6 shadow-2xl">
             <div className="flex items-center justify-between border-b border-[var(--border-color)] pb-4">
-              <h2 className="text-lg font-bold text-[var(--text-main)]">Create Purchase Order</h2>
+              <h2 className="text-lg font-bold text-[var(--text-main)]">
+                Create Purchase Order
+              </h2>
               <button
                 onClick={() => setShowModal(false)}
                 className="text-[var(--text-muted)] hover:text-[var(--text-main)] font-bold"
@@ -286,9 +530,13 @@ export default function PurchaseOrdersPage() {
                       <tr>
                         <th className="py-2.5 px-3">Product</th>
                         <th className="py-2.5 px-3 w-20">Qty</th>
-                        <th className="py-2.5 px-3 w-28 text-right">Cost Price</th>
+                        <th className="py-2.5 px-3 w-28 text-right">
+                          Cost Price
+                        </th>
                         <th className="py-2.5 px-3 w-24 text-right">Tax (%)</th>
-                        <th className="py-2.5 px-3 w-28 text-right">Line Total</th>
+                        <th className="py-2.5 px-3 w-28 text-right">
+                          Line Total
+                        </th>
                         <th className="py-2.5 px-3 w-10 text-center"></th>
                       </tr>
                     </thead>
@@ -302,7 +550,13 @@ export default function PurchaseOrdersPage() {
                             <td className="p-2">
                               <select
                                 value={line.productId}
-                                onChange={(e) => handleLineChange(idx, "productId", e.target.value)}
+                                onChange={(e) =>
+                                  handleLineChange(
+                                    idx,
+                                    "productId",
+                                    e.target.value,
+                                  )
+                                }
                                 className="w-full rounded border border-[var(--border-color)] bg-[var(--bg-primary)] p-1.5 text-xs text-[var(--text-main)]"
                                 required
                               >
@@ -319,7 +573,9 @@ export default function PurchaseOrdersPage() {
                                 type="number"
                                 min="1"
                                 value={line.qty}
-                                onChange={(e) => handleLineChange(idx, "qty", e.target.value)}
+                                onChange={(e) =>
+                                  handleLineChange(idx, "qty", e.target.value)
+                                }
                                 className="w-full rounded border border-[var(--border-color)] bg-[var(--bg-primary)] p-1.5 text-xs text-[var(--text-main)] text-center"
                               />
                             </td>
@@ -329,7 +585,13 @@ export default function PurchaseOrdersPage() {
                                 step="0.01"
                                 min="0"
                                 value={line.unitPrice}
-                                onChange={(e) => handleLineChange(idx, "unitPrice", e.target.value)}
+                                onChange={(e) =>
+                                  handleLineChange(
+                                    idx,
+                                    "unitPrice",
+                                    e.target.value,
+                                  )
+                                }
                                 className="w-full rounded border border-[var(--border-color)] bg-[var(--bg-primary)] p-1.5 text-xs text-[var(--text-main)] text-right"
                               />
                             </td>
@@ -339,7 +601,9 @@ export default function PurchaseOrdersPage() {
                                 step="0.1"
                                 min="0"
                                 value={line.tax}
-                                onChange={(e) => handleLineChange(idx, "tax", e.target.value)}
+                                onChange={(e) =>
+                                  handleLineChange(idx, "tax", e.target.value)
+                                }
                                 className="w-full rounded border border-[var(--border-color)] bg-[var(--bg-primary)] p-1.5 text-xs text-[var(--text-main)] text-right"
                               />
                             </td>

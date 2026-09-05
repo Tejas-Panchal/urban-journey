@@ -9,7 +9,9 @@ export default function BalanceSheetReportPage() {
   const loadData = async () => {
     setLoading(true);
     try {
-      const res = await fetch("/api/reports/balancesheet").then((r) => r.json().catch(() => ({}))).catch(() => ({}));
+      const res = await fetch("/api/reports/balancesheet")
+        .then((r) => r.json().catch(() => ({})))
+        .catch(() => ({}));
       setData(res);
     } catch (err) {
       console.error(err);
@@ -23,14 +25,18 @@ export default function BalanceSheetReportPage() {
   }, []);
 
   const formatCurrency = (val: number) =>
-    new Intl.NumberFormat("en-IN", { style: "currency", currency: "INR" }).format(val);
+    new Intl.NumberFormat("en-IN", {
+      style: "currency",
+      currency: "INR",
+    }).format(val);
 
   const totalAssets = data?.assets?.total || 0;
   const totalLiabilities = data?.liabilities?.total || 0;
   const capital = data?.capital || 0;
   const netIncome = data?.netIncome || 0;
   const totalLiabilitiesEquity = totalLiabilities + capital + netIncome;
-  const isBalanced = data?.balanced ?? Math.abs(totalAssets - totalLiabilitiesEquity) < 0.02;
+  const isBalanced =
+    data?.balanced ?? Math.abs(totalAssets - totalLiabilitiesEquity) < 0.02;
 
   return (
     <main className="mx-auto max-w-6xl px-6 py-8">
@@ -43,9 +49,6 @@ export default function BalanceSheetReportPage() {
               Balance Sheet Statement
             </h1>
           </div>
-          <p className="mt-1 text-xs text-[var(--text-muted)]">
-            Statement of Financial Position: Assets = Liabilities + Equity
-          </p>
         </div>
         <div className="flex items-center gap-3">
           <button
@@ -82,24 +85,32 @@ export default function BalanceSheetReportPage() {
                   <h2 className="text-sm font-black uppercase tracking-wider text-[var(--text-main)]">
                     ASSETS
                   </h2>
-                  <span className="text-[11px] text-[var(--text-muted)] font-semibold">Current Assets</span>
+                  <span className="text-[11px] text-[var(--text-muted)] font-semibold">
+                    Current Assets
+                  </span>
                 </div>
 
                 <div className="p-4 space-y-3 text-xs">
                   <div className="flex justify-between py-2 border-b border-[var(--border-color)]/50">
-                    <span className="font-medium text-[var(--text-main)]">Cash in Hand</span>
+                    <span className="font-medium text-[var(--text-main)]">
+                      Cash in Hand
+                    </span>
                     <span className="font-bold text-[var(--text-main)]">
                       {formatCurrency(data.assets?.cash || 0)}
                     </span>
                   </div>
                   <div className="flex justify-between py-2 border-b border-[var(--border-color)]/50">
-                    <span className="font-medium text-[var(--text-main)]">Bank Accounts</span>
+                    <span className="font-medium text-[var(--text-main)]">
+                      Bank Accounts
+                    </span>
                     <span className="font-bold text-[var(--text-main)]">
                       {formatCurrency(data.assets?.bank || 0)}
                     </span>
                   </div>
                   <div className="flex justify-between py-2 border-b border-[var(--border-color)]/50">
-                    <span className="font-medium text-[var(--text-main)]">Debtors / Accounts Receivable</span>
+                    <span className="font-medium text-[var(--text-main)]">
+                      Debtors / Accounts Receivable
+                    </span>
                     <span className="font-bold text-[var(--text-main)]">
                       {formatCurrency(data.assets?.debtors || 0)}
                     </span>
@@ -121,7 +132,9 @@ export default function BalanceSheetReportPage() {
                   <h2 className="text-sm font-black uppercase tracking-wider text-[var(--text-main)]">
                     LIABILITIES & EQUITY
                   </h2>
-                  <span className="text-[11px] text-[var(--text-muted)] font-semibold">Payables & Net Income</span>
+                  <span className="text-[11px] text-[var(--text-muted)] font-semibold">
+                    Payables & Net Income
+                  </span>
                 </div>
 
                 <div className="p-4 space-y-3 text-xs">
@@ -129,7 +142,9 @@ export default function BalanceSheetReportPage() {
                     Current Liabilities
                   </div>
                   <div className="flex justify-between py-2 border-b border-[var(--border-color)]/50">
-                    <span className="font-medium text-[var(--text-main)]">Creditors / Accounts Payable</span>
+                    <span className="font-medium text-[var(--text-main)]">
+                      Creditors / Accounts Payable
+                    </span>
                     <span className="font-bold text-[var(--text-main)]">
                       {formatCurrency(data.liabilities?.creditors || 0)}
                     </span>
@@ -139,13 +154,17 @@ export default function BalanceSheetReportPage() {
                     Capital & Retained Earnings
                   </div>
                   <div className="flex justify-between py-2 border-b border-[var(--border-color)]/50">
-                    <span className="font-medium text-[var(--text-main)]">Owner Capital</span>
+                    <span className="font-medium text-[var(--text-main)]">
+                      Owner Capital
+                    </span>
                     <span className="font-bold text-[var(--text-main)]">
                       {formatCurrency(capital)}
                     </span>
                   </div>
                   <div className="flex justify-between py-2 border-b border-[var(--border-color)]/50">
-                    <span className="font-medium text-[var(--text-main)]">Retained Net Operating Income</span>
+                    <span className="font-medium text-[var(--text-main)]">
+                      Retained Net Operating Income
+                    </span>
                     <span className="font-bold text-[var(--text-main)]">
                       {formatCurrency(netIncome)}
                     </span>
@@ -165,7 +184,7 @@ export default function BalanceSheetReportPage() {
           <div
             className={`mt-6 card-mono p-5 flex flex-col sm:flex-row justify-between items-center text-sm font-extrabold transition-colors ${
               isBalanced
-                ? "bg-[var(--text-main)] text-[var(--bg-primary)]"
+                ? "bg-[var(--text-main)] text-[var(--text-main)]"
                 : "bg-red-500 text-white"
             }`}
           >
@@ -177,7 +196,8 @@ export default function BalanceSheetReportPage() {
               </span>
             </div>
             <div className="mt-2 sm:mt-0 font-mono text-xs opacity-90">
-              Assets: {formatCurrency(totalAssets)} = Liab & Equity: {formatCurrency(totalLiabilitiesEquity)}
+              Assets: {formatCurrency(totalAssets)} = Liab & Equity:{" "}
+              {formatCurrency(totalLiabilitiesEquity)}
             </div>
           </div>
         </div>
