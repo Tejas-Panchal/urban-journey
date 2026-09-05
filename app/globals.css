@@ -92,3 +92,47 @@ body {
 ::-webkit-scrollbar-thumb:hover {
   background: var(--text-muted);
 }
+
+/* Print Media Styles - Force Light Theme for Print */
+@media print {
+  @page {
+    size: A4 portrait;
+    margin: 12mm 15mm;
+  }
+  
+  :root,
+  html,
+  html.dark,
+  body {
+    --bg-primary: #ffffff !important;
+    --bg-secondary: #f8fafc !important;
+    --card-bg: #ffffff !important;
+    --card-hover: #ffffff !important;
+    --border-color: #cbd5e1 !important;
+    --border-strong: #000000 !important;
+    --text-main: #09090b !important;
+    --text-muted: #475569 !important;
+    --btn-primary-bg: #000000 !important;
+    --btn-primary-text: #ffffff !important;
+    --badge-bg: #f1f5f9 !important;
+    --badge-text: #09090b !important;
+    background-color: #ffffff !important;
+    color: #09090b !important;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
+  button,
+  .no-print,
+  .print\:hidden {
+    display: none !important;
+  }
+
+  .card-mono {
+    background-color: #ffffff !important;
+    border: 1px solid #cbd5e1 !important;
+    box-shadow: none !important;
+    color: #09090b !important;
+  }
+}
+

@@ -11,8 +11,49 @@ export async function GET() {
     include: { lines: true },
     orderBy: { createdAt: "desc" },
   });
-  return NextResponse.json({ budgets });
+
+  const analytics = await db.analytic.findMany();
+  const analyticsMap = Object.fromEntries(analytics.map((a) => [a.id, a]));
+
+  const enrichedBudgets = [];
+  for (const b of budgets) {
+    if (b.status === "CONFIRMED" || b.status === "REVISED") {
+      await computeBudgetAchieved(b.id).catch(() => null);
+    }
+    const updated = await db.budget.findUnique({
+      where: { id: b.id },
+      include: { lines: true },
+    });
+
+    let revisionOf = null;
+    if (b.revisionOfId) {
+      revisionOf = await db.budget.findUnique({
+        where: { id: b.revisionOfId },
+        select: { id: true, name: true, status: true },
+      });
+    }
+
+    const revisedWith = await db.budget.findFirst({
+      where: { revisionOfId: b.id },
+      select: { id: true, name: true, status: true },
+    });
+
+    const lines = (updated?.lines || []).map((l) => ({
+      ...l,
+      analyticName: analyticsMap[l.analyticId]?.name || l.analyticId,
+    }));
+
+    enrichedBudgets.push({
+      ...updated,
+      lines,
+      revisionOf,
+      revisedWith,
+    });
+  }
+
+  return NextResponse.json({ budgets: enrichedBudgets, analytics });
 }
+
 export async function POST(req: Request) {
   const { error } = await requireSession(["ADMIN", "ACCOUNTANT"]);
   if (error) return error!;
@@ -35,3 +76,4 @@ export async function POST(req: Request) {
   });
   return NextResponse.json({ budget: b }, { status: 201 });
 }
+

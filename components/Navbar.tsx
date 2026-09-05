@@ -145,7 +145,7 @@ export function Navbar() {
   const isAuthPage = ["/login", "/signup", "/forgot"].includes(pathname);
 
   return (
-    <header className="sticky top-0 z-50 border-b border-[var(--border-color)] bg-[var(--bg-primary)]/90 backdrop-blur-md transition-colors">
+    <header className="sticky top-0 z-50 border-b border-[var(--border-color)] bg-[var(--bg-primary)]/90 backdrop-blur-md transition-colors print:hidden">
       <div className="mx-auto flex max-w-7xl items-center justify-between px-6 py-3">
         {/* Brand Logo & Name */}
         <div className="flex items-center gap-8">
