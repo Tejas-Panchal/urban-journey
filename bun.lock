@@ -3,7 +3,7 @@
   "configVersion": 1,
   "workspaces": {
     "": {
-      "name": "urban-furniture",
+      "name": "urban-journey",
       "dependencies": {
         "@prisma/client": "6",
         "bcryptjs": "^3.0.3",

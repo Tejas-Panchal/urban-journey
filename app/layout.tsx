@@ -15,11 +15,15 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Urban Furniture ERP — Accounting & Financial Management",
+  title: "Urban Journey — Accounting & Financial Management",
   description: "Modern Double-Entry Accounting & ERP Solution",
 };
 
-export default function RootLayout({ children }: { children: React.ReactNode }) {
+export default function RootLayout({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
   return (
     <html
       lang="en"

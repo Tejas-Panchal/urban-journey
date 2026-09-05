@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import { jwtVerify } from "jose";
 
-export async function middleware(req: NextRequest) {
+export async function proxy(req: NextRequest) {
   const p = req.nextUrl.pathname;
   const isApi = p.startsWith("/api/");
   const isAuthPage = p === "/login" || p === "/signup" || p === "/forgot";
@@ -11,10 +11,12 @@ export async function middleware(req: NextRequest) {
   if (
     isPublic ||
     (isApi &&
-      (p.startsWith("/api/auth/login") || p.startsWith("/api/auth/signup")))
+      (p.startsWith("/api/auth/login") ||
+        p.startsWith("/api/auth/signup") ||
+        p.startsWith("/api/auth/reset-password")))
   )
     return NextResponse.next();
-  const token = req.cookies.get("uf_session")?.value;
+  const token = req.cookies.get("uj_session")?.value || req.cookies.get("uf_session")?.value;
   if (!token) {
     if (isApi)
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -34,6 +36,7 @@ export async function middleware(req: NextRequest) {
     return NextResponse.redirect(new URL("/login", req.url));
   }
 }
+
 export const config = {
   matcher: ["/((?!_next/static|_next/image|favicon.ico|public).*)"],
 };

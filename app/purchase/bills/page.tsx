@@ -42,7 +42,7 @@ export default function VendorBillsPage() {
     setLoading(true);
     try {
       const [billRes, contactRes, prodRes] = await Promise.all([
-        fetch("/api/purchase/bills").then((r) => r.json()),
+        fetch("/api/purchase/bills").then((r) => r.json()).catch(() => ({ bills: [] })),
         fetch("/api/contacts").then((r) => r.json()).catch(() => ({ contacts: [] })),
         fetch("/api/products").then((r) => r.json()).catch(() => ({ products: [] })),
       ]);
@@ -114,12 +114,12 @@ export default function VendorBillsPage() {
           lines,
         }),
       });
-      const data = await res.json();
+      const data = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(data.error || "Failed to create bill");
       setShowModal(false);
       loadData();
     } catch (err: any) {
-      setErrorMsg(err.message);
+      setErrorMsg(err.message || "An unexpected error occurred");
     } finally {
       setSaving(false);
     }
@@ -149,12 +149,12 @@ export default function VendorBillsPage() {
           note: `Payment for bill ${selectedBill.no}`,
         }),
       });
-      const data = await res.json();
+      const data = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(data.error || "Failed to post payment");
       setShowPayModal(false);
       loadData();
     } catch (err: any) {
-      alert(err.message);
+      alert(err.message || "Failed to post payment");
     } finally {
       setSaving(false);
     }

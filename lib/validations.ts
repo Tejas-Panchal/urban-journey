@@ -25,8 +25,20 @@ export const signupSchema = z
     path: ["rePassword"],
   });
 
+export const forgotPasswordSchema = z
+  .object({
+    loginId: z.string().min(1, "Login Id is required"),
+    email: z.string().email("Valid email is required"),
+    newPassword: passwordSchema,
+    rePassword: z.string(),
+  })
+  .refine((d) => d.newPassword === d.rePassword, {
+    message: "Passwords do not match",
+    path: ["rePassword"],
+  });
+
 export const createUserSchema = signupSchema.extend({
-  role: z.enum(["ADMIN", "ACCOUNTANT"]).default("ACCOUNTANT"),
+  role: z.enum(["ADMIN", "ACCOUNTANT", "CONTACT"]).default("ACCOUNTANT"),
 });
 
 export const contactSchema = z.object({

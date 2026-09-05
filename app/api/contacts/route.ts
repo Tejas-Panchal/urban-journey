@@ -12,7 +12,14 @@ export async function GET(req: Request) {
   const contacts = await db.contact.findMany({
     where: {
       ...(type ? { type: type as any } : {}),
-      ...(search ? { OR: [{ name: { contains: search } }, { email: { contains: search } }] } : {}),
+      ...(search
+        ? {
+            OR: [
+              { name: { contains: search } },
+              { email: { contains: search } },
+            ],
+          }
+        : {}),
     },
     orderBy: { createdAt: "desc" },
   });
@@ -24,8 +31,10 @@ export async function POST(req: Request) {
   if (error) return error!;
   const body = await req.json().catch(() => ({}));
   const parsed = contactSchema.safeParse(body);
-  if (!parsed.success) return apiError(parsed.error.issues[0]?.message ?? "Invalid input");
-  if (await db.contact.findUnique({ where: { email: parsed.data.email } })) return apiError("Email already exists", 409);
+  if (!parsed.success)
+    return apiError(parsed.error.issues[0]?.message ?? "Invalid input");
+  if (await db.contact.findUnique({ where: { email: parsed.data.email } }))
+    return apiError("Email already exists", 409);
   const c = await db.contact.create({ data: parsed.data });
   return NextResponse.json({ contact: c }, { status: 201 });
 }

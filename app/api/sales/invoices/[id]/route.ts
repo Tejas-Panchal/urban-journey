@@ -7,7 +7,7 @@ export async function GET(_req: Request, ctx: { params: Promise<{ id: string }> 
   const { error } = await requireSession(["ADMIN", "ACCOUNTANT"]);
   if (error) return error!;
   const { id } = await ctx.params;
-  const inv = await db.customerInvoice.findUnique({ where: { id }, include: { lines: true, payments: true } });
+  const inv = await db.customerInvoice.findUnique({ where: { id }, include: { customer: true, lines: true, payments: true } });
   if (!inv) return apiError("Not found", 404);
   return NextResponse.json({ invoice: inv });
 }

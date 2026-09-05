@@ -4,7 +4,7 @@ import { verifySession, type SessionPayload } from "@/lib/auth";
 
 export async function getSession(): Promise<SessionPayload | null> {
   const store = await cookies();
-  const token = store.get("uf_session")?.value;
+  const token = store.get("uj_session")?.value || store.get("uf_session")?.value;
   if (!token) return null;
   return verifySession(token);
 }

@@ -1,7 +1,8 @@
 import bcrypt from "bcryptjs";
 import { SignJWT, jwtVerify } from "jose";
 
-const secret = new TextEncoder().encode(process.env.JWT_SECRET ?? "urban-furniture-local-dev-secret-change-me");
+const secretNew = new TextEncoder().encode(process.env.JWT_SECRET ?? "urban-journey-local-dev-secret-change-me");
+const secretOld = new TextEncoder().encode("urban-furniture-local-dev-secret-change-me");
 
 export async function hashPassword(pw: string) {
   return bcrypt.hash(pw, 10);
@@ -17,21 +18,26 @@ export async function signSession(p: SessionPayload) {
     .setProtectedHeader({ alg: "HS256" })
     .setIssuedAt()
     .setExpirationTime("7d")
-    .sign(secret);
+    .sign(secretNew);
 }
 
 export async function verifySession(token: string): Promise<SessionPayload | null> {
   try {
-    const { payload } = await jwtVerify(token, secret);
+    const { payload } = await jwtVerify(token, secretNew);
     return payload as unknown as SessionPayload;
   } catch {
-    return null;
+    try {
+      const { payload } = await jwtVerify(token, secretOld);
+      return payload as unknown as SessionPayload;
+    } catch {
+      return null;
+    }
   }
 }
 
 export function sessionCookie(token: string) {
-  return `uf_session=${token}; Path=/; HttpOnly; SameSite=Lax; Max-Age=${7 * 24 * 3600}`;
+  return `uj_session=${token}; Path=/; HttpOnly; SameSite=Lax; Max-Age=${7 * 24 * 3600}`;
 }
 export function clearSessionCookie() {
-  return `uf_session=; Path=/; HttpOnly; SameSite=Lax; Max-Age=0`;
+  return `uj_session=; Path=/; HttpOnly; SameSite=Lax; Max-Age=0`;
 }

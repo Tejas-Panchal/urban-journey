@@ -44,7 +44,7 @@ export default function SignupPage() {
         setErr(data.error ?? "Registration failed. Please check your details.");
         return;
       }
-      router.push("/dashboard");
+      window.location.href = "/dashboard";
     } catch {
       setErr("Network error occurred during signup.");
     } finally {
@@ -57,13 +57,13 @@ export default function SignupPage() {
       <div className="card-mono w-full max-w-md p-8 shadow-2xl">
         <div className="text-center">
           <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-xl bg-[var(--text-main)] text-[var(--bg-primary)] text-lg font-black shadow-md">
-            UF
+            UJ
           </div>
           <h1 className="mt-4 text-2xl font-black tracking-tight text-[var(--text-main)]">
             Create Account
           </h1>
           <p className="mt-1 text-xs text-[var(--text-muted)]">
-            Register for Urban Furniture ERP & Accounting
+            Register for Urban Journey & Accounting
           </p>
         </div>
 
@@ -152,7 +152,8 @@ export default function SignupPage() {
             </div>
           </div>
           <p className="text-[10px] text-[var(--text-muted)]">
-            Must contain 8+ characters, uppercase, lowercase, and a special character.
+            Must contain 8+ characters, uppercase, lowercase, and a special
+            character.
           </p>
 
           <button
@@ -166,7 +167,10 @@ export default function SignupPage() {
 
         <div className="mt-6 border-t border-[var(--border-color)] pt-4 text-center text-xs text-[var(--text-muted)]">
           Already have an account?{" "}
-          <Link href="/login" className="font-bold underline text-[var(--text-main)]">
+          <Link
+            href="/login"
+            className="font-bold underline text-[var(--text-main)]"
+          >
             Sign In
           </Link>
         </div>

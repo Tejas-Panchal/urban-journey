@@ -24,3 +24,16 @@ export async function POST(req: Request) {
   const p = await db.product.create({ data: parsed.data });
   return NextResponse.json({ product: p }, { status: 201 });
 }
+
+export async function DELETE(req: Request) {
+  const { error } = await requireSession(["ADMIN", "ACCOUNTANT"]);
+  if (error) return error!;
+  const body = await req.json().catch(() => ({}));
+  const ids: string[] = Array.isArray(body.ids) ? body.ids : body.id ? [body.id] : [];
+  if (ids.length === 0) return apiError("No IDs provided", 400);
+
+  await db.product.deleteMany({
+    where: { id: { in: ids } },
+  });
+  return NextResponse.json({ ok: true, count: ids.length });
+}

@@ -2,10 +2,18 @@ import { db } from "../lib/db";
 import { hashPassword } from "../lib/auth";
 
 async function main() {
-  console.log("Seeding Urban Furniture database...");
+  console.log("Seeding Urban Journey database with complete demo data...");
 
-  // 1. Chart of Accounts
+  // 1. Chart of Accounts (Including wireframe pre-configured accounts)
   const accounts = [
+    { name: "Bank A/c", type: "ASSET" as const, subtype: "BANK" as const },
+    { name: "Purchase Expense A/c", type: "EXPENSE" as const, subtype: "PURCHASE" as const },
+    { name: "Debtors A/c", type: "ASSET" as const, subtype: "DEBTOR" as const },
+    { name: "Creditors A/c", type: "LIABILITY" as const, subtype: "CREDITOR" as const },
+    { name: "Sales Income A/c", type: "INCOME" as const, subtype: "SALE" as const },
+    { name: "Cash A/c", type: "ASSET" as const, subtype: "CASH" as const },
+    { name: "Other Expense A/c", type: "EXPENSE" as const, subtype: "OTHER" as const },
+    { name: "Capital A/c", type: "CAPITAL" as const, subtype: "CAPITAL" as const },
     { name: "Cash", type: "ASSET" as const, subtype: "CASH" as const },
     { name: "Bank", type: "ASSET" as const, subtype: "BANK" as const },
     { name: "Debtors", type: "ASSET" as const, subtype: "DEBTOR" as const },
@@ -25,25 +33,78 @@ async function main() {
   const journals = [
     { name: "Sales Journal", type: "SALES" as const },
     { name: "Purchase Journal", type: "PURCHASE" as const },
-    { name: "Bank Journal", type: "BANK" as const, defaultDebitId: bankAcct?.id, defaultCreditId: bankAcct?.id },
-    { name: "Cash Journal", type: "CASH" as const, defaultDebitId: cashAcct?.id, defaultCreditId: cashAcct?.id },
+    {
+      name: "Bank Journal",
+      type: "BANK" as const,
+      defaultDebitId: bankAcct?.id,
+      defaultCreditId: bankAcct?.id,
+    },
+    {
+      name: "Cash Journal",
+      type: "CASH" as const,
+      defaultDebitId: cashAcct?.id,
+      defaultCreditId: cashAcct?.id,
+    },
   ];
   for (const j of journals) {
     await db.journal.upsert({ where: { name: j.name }, update: {}, create: j });
   }
 
   // 3. Product Categories
-  const catFurniture = await db.category.upsert({ where: { name: "Furniture" }, update: {}, create: { name: "Furniture" } });
-  const catElectronics = await db.category.upsert({ where: { name: "Electronics" }, update: {}, create: { name: "Electronics" } });
+  const catFurniture = await db.category.upsert({
+    where: { name: "Furniture" },
+    update: {},
+    create: { name: "Furniture" },
+  });
+  const catElectronics = await db.category.upsert({
+    where: { name: "Electronics" },
+    update: {},
+    create: { name: "Electronics" },
+  });
+  const catOffice = await db.category.upsert({
+    where: { name: "Office Supplies" },
+    update: {},
+    create: { name: "Office Supplies" },
+  });
 
-  // 4. Contacts (PDF Page 1, 2, 4)
-  const azure = await db.contact.upsert({
-    where: { email: "azure@furniture.example.com" },
+  // 4. Contacts (Including Wireframe Demo Contacts)
+  const openWood = await db.contact.upsert({
+    where: { email: "Openwood21@example.com" },
     update: {},
     create: {
-      name: "Azure Furniture",
+      name: "Open Wood",
+      type: "CUSTOMER",
+      email: "Openwood21@example.com",
+      mobile: "+91 9090090909",
+      street: "Sector 17",
+      city: "Chandigarh",
+      state: "Punjab",
+      pincode: "160017",
+    },
+  });
+
+  const joeyWills = await db.contact.upsert({
+    where: { email: "Joey.wills@example.com" },
+    update: {},
+    create: {
+      name: "Joey Wills",
+      type: "CUSTOMER",
+      email: "Joey.wills@example.com",
+      mobile: "+91 8080080808",
+      street: "MG Road",
+      city: "Bengaluru",
+      state: "Karnataka",
+      pincode: "560001",
+    },
+  });
+
+  const azure = await db.contact.upsert({
+    where: { email: "azure@journey.example.com" },
+    update: {},
+    create: {
+      name: "Azure Journey",
       type: "VENDOR",
-      email: "azure@furniture.example.com",
+      email: "azure@journey.example.com",
       mobile: "+91 9898098980",
       street: "Industrial Area Phase 1",
       city: "Ahmedabad",
@@ -82,24 +143,74 @@ async function main() {
     },
   });
 
-  // 5. Products (PDF Page 2)
+  // 5. Products (Including Wireframe Demo Products)
   const prods = [
-    { name: "Office Chair", type: "GOODS" as const, salesPrice: 5000, cost: 3000, categoryId: catFurniture.id },
-    { name: "Wooden Table", type: "GOODS" as const, salesPrice: 8000, cost: 5000, categoryId: catFurniture.id },
-    { name: "Sofa", type: "GOODS" as const, salesPrice: 20000, cost: 12000, categoryId: catFurniture.id },
-    { name: "Dining Table", type: "GOODS" as const, salesPrice: 15000, cost: 9000, categoryId: catFurniture.id },
-    { name: "Wooden Chair", type: "GOODS" as const, salesPrice: 3500, cost: 2000, categoryId: catFurniture.id },
+    {
+      name: "Air Conditioner",
+      type: "GOODS" as const,
+      salesPrice: 25000,
+      cost: 15000,
+      categoryId: catElectronics.id,
+    },
+    {
+      name: "Refrigerator",
+      type: "GOODS" as const,
+      salesPrice: 10000,
+      cost: 7000,
+      categoryId: catElectronics.id,
+    },
+    {
+      name: "Office Chair",
+      type: "GOODS" as const,
+      salesPrice: 5000,
+      cost: 3000,
+      categoryId: catFurniture.id,
+    },
+    {
+      name: "Wooden Table",
+      type: "GOODS" as const,
+      salesPrice: 8000,
+      cost: 5000,
+      categoryId: catFurniture.id,
+    },
+    {
+      name: "Sofa",
+      type: "GOODS" as const,
+      salesPrice: 20000,
+      cost: 12000,
+      categoryId: catFurniture.id,
+    },
+    {
+      name: "Dining Table",
+      type: "GOODS" as const,
+      salesPrice: 15000,
+      cost: 9000,
+      categoryId: catFurniture.id,
+    },
+    {
+      name: "Wooden Chair",
+      type: "GOODS" as const,
+      salesPrice: 3500,
+      cost: 2000,
+      categoryId: catFurniture.id,
+    },
   ];
   for (const p of prods) {
     const ex = await db.product.findFirst({ where: { name: p.name } });
     if (!ex) await db.product.create({ data: p });
   }
 
-  // 6. Analytic Account (PDF Page 4)
+  // 6. Analytic Account
   const analytic = await db.analytic.upsert({
-    where: { name: "Furniture Project" },
+    where: { name: "Journey Project" },
     update: {},
-    create: { name: "Furniture Project", type: "EXPENSE" },
+    create: { name: "Journey Project", type: "EXPENSE" },
+  });
+
+  const analyticIT = await db.analytic.upsert({
+    where: { name: "IT Infrastructure" },
+    update: {},
+    create: { name: "IT Infrastructure", type: "EXPENSE" },
   });
 
   // 7. System Users (Admin, Accountant, Contact User)
@@ -107,24 +218,40 @@ async function main() {
   await db.user.upsert({
     where: { loginId: "admin01" },
     update: {},
-    create: { loginId: "admin01", email: "admin@urban.example.com", passwordHash: adminHash, role: "ADMIN" },
+    create: {
+      loginId: "admin01",
+      email: "admin@urban.example.com",
+      passwordHash: adminHash,
+      role: "ADMIN",
+    },
   });
 
   const acctHash = await hashPassword("account123");
   await db.user.upsert({
     where: { loginId: "acct001" },
     update: {},
-    create: { loginId: "acct001", email: "acct@urban.example.com", passwordHash: acctHash, role: "ACCOUNTANT" },
+    create: {
+      loginId: "acct001",
+      email: "acct@urban.example.com",
+      passwordHash: acctHash,
+      role: "ACCOUNTANT",
+    },
   });
 
   const contactUserHash = await hashPassword("user1234!");
   await db.user.upsert({
     where: { loginId: "nimesh01" },
     update: {},
-    create: { loginId: "nimesh01", email: "nimesh@example.com", passwordHash: contactUserHash, role: "CONTACT", contactId: nimesh.id },
+    create: {
+      loginId: "nimesh01",
+      email: "nimesh@example.com",
+      passwordHash: contactUserHash,
+      role: "CONTACT",
+      contactId: nimesh.id,
+    },
   });
 
-  // 8. Budget (PDF Page 4)
+  // 8. Budget
   const b = await db.budget.findFirst({ where: { name: "Q1 2026 Budget" } });
   if (!b) {
     await db.budget.create({
@@ -133,17 +260,22 @@ async function main() {
         start: new Date("2026-01-01"),
         end: new Date("2026-03-31"),
         status: "CONFIRMED",
-        lines: { create: [{ analyticId: analytic.id, type: "EXPENSE", committed: 250000 }] },
+        lines: {
+          create: [
+            { analyticId: analytic.id, type: "EXPENSE", committed: 250000 },
+            { analyticId: analyticIT.id, type: "EXPENSE", committed: 150000 },
+          ],
+        },
       },
     });
   }
 
   console.log("Database seeded successfully!", {
+    contacts: ["Open Wood", "Joey Wills", "Azure Journey", "Rahul Sharma", "Nimesh Pathak"],
+    products: ["Air Conditioner", "Refrigerator", "Office Chair", "Wooden Table", "Sofa"],
     admin: "admin01 / admin123",
     accountant: "acct001 / account123",
-    contactUser: "nimesh01 / user1234!",
-    vendor: azure.name,
-    customer: nimesh.name,
+    customerUser: "nimesh01 / user1234!",
   });
 }
 

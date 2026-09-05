@@ -43,7 +43,7 @@ export default function CustomerInvoicesPage() {
     setLoading(true);
     try {
       const [invRes, contactRes, prodRes] = await Promise.all([
-        fetch("/api/sales/invoices").then((r) => r.json()),
+        fetch("/api/sales/invoices").then((r) => r.json()).catch(() => ({ invoices: [] })),
         fetch("/api/contacts").then((r) => r.json()).catch(() => ({ contacts: [] })),
         fetch("/api/products").then((r) => r.json()).catch(() => ({ products: [] })),
       ]);
@@ -115,14 +115,14 @@ export default function CustomerInvoicesPage() {
           lines,
         }),
       });
-      const data = await res.json();
+      const data = await res.json().catch(() => ({}));
       if (!res.ok) {
         throw new Error(data.error || "Failed to create invoice");
       }
       setShowModal(false);
       loadData();
     } catch (err: any) {
-      setErrorMsg(err.message);
+      setErrorMsg(err.message || "An unexpected error occurred");
     } finally {
       setSaving(false);
     }
@@ -152,12 +152,12 @@ export default function CustomerInvoicesPage() {
           note: payNote || `Payment for ${selectedInvoice.no}`,
         }),
       });
-      const data = await res.json();
+      const data = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(data.error || "Failed to post payment");
       setShowPayModal(false);
       loadData();
     } catch (err: any) {
-      alert(err.message);
+      alert(err.message || "Failed to post payment");
     } finally {
       setSaving(false);
     }

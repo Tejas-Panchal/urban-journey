@@ -3,23 +3,51 @@ import { db } from "@/lib/db";
 import { requireSession, apiError } from "@/lib/api";
 import { z } from "zod";
 
-export async function GET() {
+export async function GET(req: Request) {
   const { error } = await requireSession(["ADMIN", "ACCOUNTANT"]);
   if (error) return error!;
-  return NextResponse.json({ accounts: await db.account.findMany({ orderBy: { name: "asc" } }) });
+
+  const { searchParams } = new URL(req.url);
+  const search = searchParams.get("search");
+  const showArchived = searchParams.get("archived") === "true";
+
+  const where: any = {
+    isArchived: showArchived,
+  };
+
+  if (search) {
+    where.name = { contains: search };
+  }
+
+  const accounts = await db.account.findMany({
+    where,
+    orderBy: { name: "asc" },
+  });
+
+  return NextResponse.json({ accounts });
 }
+
 export async function POST(req: Request) {
   const { error } = await requireSession(["ADMIN", "ACCOUNTANT"]);
   if (error) return error!;
   const body = await req.json().catch(() => ({}));
-  const parsed = z.object({
-    name: z.string().min(1),
-    type: z.enum(["ASSET", "LIABILITY", "INCOME", "EXPENSE", "CAPITAL"]),
-    subtype: z.enum(["CASH", "BANK", "DEBTOR", "CREDITOR", "SALE", "PURCHASE", "OTHER", "CAPITAL"]).default("OTHER"),
-  }).safeParse(body);
+  const parsed = z
+    .object({
+      name: z.string().min(1),
+      type: z.enum(["ASSET", "LIABILITY", "INCOME", "EXPENSE", "CAPITAL"]),
+      subtype: z
+        .enum(["CASH", "BANK", "DEBTOR", "CREDITOR", "SALE", "PURCHASE", "OTHER", "CAPITAL"])
+        .default("OTHER"),
+    })
+    .safeParse(body);
+
   if (!parsed.success) return apiError("Invalid input");
+
   try {
     const a = await db.account.create({ data: parsed.data });
     return NextResponse.json({ account: a }, { status: 201 });
-  } catch { return apiError("Account already exists", 409); }
+  } catch {
+    return apiError("Account already exists", 409);
+  }
 }
+
