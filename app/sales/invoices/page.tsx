@@ -2,6 +2,8 @@
 import React, { useEffect, useState } from "react";
 import { CreditCardIcon } from "@/components/Icons";
 
+import Modal from "@/components/Modal";
+
 interface LineItem {
   productId: string;
   qty: number;
@@ -19,6 +21,7 @@ export default function CustomerInvoicesPage() {
   const [showModal, setShowModal] = useState(false);
   const [showPayModal, setShowPayModal] = useState(false);
   const [selectedInvoice, setSelectedInvoice] = useState<any>(null);
+  const [viewDetailInvoice, setViewDetailInvoice] = useState<any>(null);
 
   // Invoice Form state
   const [customerId, setCustomerId] = useState("");
@@ -249,7 +252,11 @@ export default function CustomerInvoicesPage() {
               </thead>
               <tbody className="divide-y divide-[var(--border-color)]/60">
                 {filteredInvoices.map((i) => (
-                  <tr key={i.id} className="hover:bg-[var(--card-hover)] transition-colors">
+                  <tr
+                    key={i.id}
+                    onClick={() => setViewDetailInvoice(i)}
+                    className="hover:bg-[var(--card-hover)] cursor-pointer transition-colors"
+                  >
                     <td className="py-3.5 px-4 font-mono font-bold text-[var(--text-main)]">
                       {i.no}
                     </td>
@@ -260,7 +267,7 @@ export default function CustomerInvoicesPage() {
                       {new Date(i.dueDate).toLocaleDateString()}
                     </td>
                     <td className="py-3.5 px-4 font-medium text-[var(--text-main)]">
-                      {i.customerId}
+                      {i.customer?.name || contacts.find((c) => c.id === i.customerId)?.name || i.customerId}
                     </td>
                     <td className="py-3.5 px-4 text-right font-bold text-[var(--text-main)]">
                       {formatCurrency(i.total || 0)}
@@ -273,7 +280,7 @@ export default function CustomerInvoicesPage() {
                         {i.status}
                       </span>
                     </td>
-                    <td className="py-3.5 px-4 text-center">
+                    <td className="py-3.5 px-4 text-center" onClick={(e) => e.stopPropagation()}>
                       {i.due > 0 && (
                         <button
                           onClick={() => openPaymentModal(i)}
@@ -290,6 +297,94 @@ export default function CustomerInvoicesPage() {
           )}
         </div>
       </div>
+
+      {/* --- INVOICE DETAIL POPUP COMPONENT (MODAL) --- */}
+      <Modal
+        isOpen={Boolean(viewDetailInvoice)}
+        onClose={() => setViewDetailInvoice(null)}
+        title={`Customer Invoice ${viewDetailInvoice?.no || ""}`}
+        maxWidth="max-w-3xl"
+      >
+        {viewDetailInvoice && (
+          <div className="space-y-4 text-xs">
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 p-4 rounded-lg bg-[var(--badge-bg)] border border-[var(--border-color)]">
+              <div>
+                <span className="text-[var(--text-muted)] block text-[10px] uppercase font-bold">Invoice Ref</span>
+                <span className="font-mono font-bold text-[var(--text-main)]">{viewDetailInvoice.no}</span>
+              </div>
+              <div>
+                <span className="text-[var(--text-muted)] block text-[10px] uppercase font-bold">Customer</span>
+                <span className="font-bold text-[var(--text-main)]">
+                  {viewDetailInvoice.customer?.name || contacts.find((c) => c.id === viewDetailInvoice.customerId)?.name || viewDetailInvoice.customerId}
+                </span>
+              </div>
+              <div>
+                <span className="text-[var(--text-muted)] block text-[10px] uppercase font-bold">Invoice Date</span>
+                <span className="font-mono text-[var(--text-main)]">{new Date(viewDetailInvoice.invDate).toLocaleDateString()}</span>
+              </div>
+              <div>
+                <span className="text-[var(--text-muted)] block text-[10px] uppercase font-bold">Status</span>
+                <span className="font-bold text-emerald-400">{viewDetailInvoice.status}</span>
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <h4 className="font-bold text-xs text-[var(--text-main)]">Invoice Line Items</h4>
+              <table className="w-full text-left text-xs border border-[var(--border-color)]">
+                <thead>
+                  <tr className="border-b border-[var(--border-color)] bg-[var(--badge-bg)] text-[var(--text-muted)] font-bold">
+                    <th className="p-2">Product</th>
+                    <th className="p-2 text-right">Qty</th>
+                    <th className="p-2 text-right">Unit Price</th>
+                    <th className="p-2 text-right">Tax (%)</th>
+                    <th className="p-2 text-right">Total</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-[var(--border-color)]/60 font-mono">
+                  {(viewDetailInvoice.lines || []).map((l: any, idx: number) => (
+                    <tr key={l.id || idx}>
+                      <td className="p-2 font-sans font-semibold">
+                        {l.product?.name || products.find((p) => p.id === l.productId)?.name || l.productId}
+                      </td>
+                      <td className="p-2 text-right">{l.qty}</td>
+                      <td className="p-2 text-right">{formatCurrency(l.unitPrice)}</td>
+                      <td className="p-2 text-right">{l.tax}%</td>
+                      <td className="p-2 text-right font-bold">{formatCurrency(l.total)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+
+            <div className="flex justify-between items-center pt-3 border-t border-[var(--border-color)]">
+              <div className="text-[11px] font-mono">
+                <span className="text-[var(--text-muted)]">Total Amount: </span>
+                <span className="font-bold text-emerald-400 text-sm">{formatCurrency(viewDetailInvoice.total || 0)}</span>
+              </div>
+              <div className="flex gap-2">
+                {viewDetailInvoice.due > 0 && (
+                  <button
+                    onClick={() => {
+                      const inv = viewDetailInvoice;
+                      setViewDetailInvoice(null);
+                      openPaymentModal(inv);
+                    }}
+                    className="btn-outline px-4 py-2 text-xs font-bold rounded-lg bg-[var(--badge-bg)]"
+                  >
+                    Pay Invoice Now
+                  </button>
+                )}
+                <button
+                  onClick={() => setViewDetailInvoice(null)}
+                  className="btn-outline px-4 py-2 text-xs font-bold rounded-lg"
+                >
+                  Close
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+      </Modal>
 
       {/* Create Invoice Modal */}
       {showModal && (

@@ -7,7 +7,7 @@ import { postJournal, getAccountIdByName } from "@/lib/accounting";
 export async function GET() {
   const { error, session } = await requireSession(["ADMIN", "ACCOUNTANT", "CONTACT"]);
   if (error || !session) return error!;
-  const payments = await db.payment.findMany({ orderBy: { createdAt: "desc" }, take: 200 });
+  const payments = await db.payment.findMany({ include: { partner: true }, orderBy: { createdAt: "desc" }, take: 200 });
   return NextResponse.json({ payments });
 }
 

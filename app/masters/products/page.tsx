@@ -2,6 +2,7 @@
 
 import React, { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import Modal from "@/components/Modal";
 
 interface Category {
   id: string;
@@ -24,7 +25,8 @@ export default function ProductsMasterPage() {
   const [products, setProducts] = useState<Product[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
   const [loading, setLoading] = useState(true);
-  const [viewMode, setViewMode] = useState<"list" | "kanban" | "form">("list");
+  const [viewMode, setViewMode] = useState<"list" | "kanban">("list");
+  const [showModal, setShowModal] = useState(false);
   const [search, setSearch] = useState("");
   const [err, setErr] = useState("");
   const [successMsg, setSuccessMsg] = useState("");
@@ -52,7 +54,7 @@ export default function ProductsMasterPage() {
     try {
       const query = search ? `?search=${encodeURIComponent(search)}` : "";
       const res = await fetch(`/api/products${query}`);
-      const data = await res.json();
+      const data = await res.json().catch(() => ({}));
       if (res.ok && data.products) {
         setProducts(data.products);
       }
@@ -66,7 +68,7 @@ export default function ProductsMasterPage() {
   const fetchCategories = async () => {
     try {
       const res = await fetch("/api/categories");
-      const data = await res.json();
+      const data = await res.json().catch(() => ({}));
       if (res.ok && data.categories) {
         setCategories(data.categories);
         if (!form.categoryId && data.categories.length > 0) {
@@ -96,7 +98,7 @@ export default function ProductsMasterPage() {
     });
     setErr("");
     setSuccessMsg("");
-    setViewMode("form");
+    setShowModal(true);
   };
 
   // Open Form for Editing Existing Product
@@ -112,7 +114,7 @@ export default function ProductsMasterPage() {
     });
     setErr("");
     setSuccessMsg("");
-    setViewMode("form");
+    setShowModal(true);
   };
 
   // Confirm / Save Product
@@ -160,7 +162,7 @@ export default function ProductsMasterPage() {
       );
       await fetchProducts();
       setTimeout(() => {
-        setViewMode("list");
+        setShowModal(false);
       }, 700);
     } catch (error: any) {
       setErr(error.message);
@@ -183,7 +185,6 @@ export default function ProductsMasterPage() {
       if (!res.ok) {
         throw new Error(data.error || "Failed to create category");
       }
-      // Refresh category list and auto-select new category
       await fetchCategories();
       setForm((prev) => ({ ...prev, categoryId: data.category.id }));
       setNewCategoryName("");
@@ -193,11 +194,6 @@ export default function ProductsMasterPage() {
     } finally {
       setCreatingCategory(false);
     }
-  };
-
-  // Row click handler
-  const handleRowClick = (product: Product) => {
-    handleEdit(product);
   };
 
   // Image Upload helper
@@ -222,43 +218,25 @@ export default function ProductsMasterPage() {
             onClick={handleNew}
             className="btn-outline px-5 py-2 text-xs font-bold rounded-lg border-2"
           >
-            New
+            + New Product
           </button>
 
-          {viewMode === "form" && (
-            <button
-              onClick={() => handleConfirm()}
-              disabled={saving}
-              className="btn-outline px-5 py-2 text-xs font-bold rounded-lg border-2 bg-[var(--badge-bg)]"
-            >
-              {saving ? "Saving..." : "Confirm"}
-            </button>
-          )}
-
           {/* Search Box */}
-          {viewMode !== "form" && (
-            <div className="relative">
-              <input
-                type="text"
-                placeholder="Search..."
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                className="w-64 rounded-lg border border-[var(--border-color)] bg-[var(--bg-primary)] px-3.5 py-1.5 text-xs text-[var(--text-main)] focus:outline-none focus:border-[var(--text-main)] font-mono"
-              />
-            </div>
-          )}
+          <div className="relative">
+            <input
+              type="text"
+              placeholder="Search..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="w-64 rounded-lg border border-[var(--border-color)] bg-[var(--bg-primary)] px-3.5 py-1.5 text-xs text-[var(--text-main)] focus:outline-none focus:border-[var(--text-main)] font-mono"
+            />
+          </div>
         </div>
 
         {/* Right View Switchers & Back Button */}
         <div className="flex items-center gap-3">
           <button
-            onClick={() => {
-              if (viewMode === "form") {
-                setViewMode("list");
-              } else {
-                router.push("/dashboard");
-              }
-            }}
+            onClick={() => router.push("/dashboard")}
             className="btn-outline px-5 py-2 text-xs font-bold rounded-lg"
           >
             Back
@@ -268,7 +246,7 @@ export default function ProductsMasterPage() {
           <div className="flex items-center rounded-lg border border-[var(--border-color)] bg-[var(--bg-primary)] p-1 gap-1">
             <button
               onClick={() => setViewMode("list")}
-              title="List View"
+              aria-label="List"
               className={`p-1.5 rounded-md transition-colors ${
                 viewMode === "list"
                   ? "bg-[var(--text-main)] text-[var(--bg-primary)]"
@@ -282,7 +260,7 @@ export default function ProductsMasterPage() {
 
             <button
               onClick={() => setViewMode("kanban")}
-              title="Kanban View"
+              aria-label="Kanban"
               className={`p-1.5 rounded-md transition-colors ${
                 viewMode === "kanban"
                   ? "bg-[var(--text-main)] text-[var(--bg-primary)]"
@@ -297,13 +275,14 @@ export default function ProductsMasterPage() {
         </div>
       </div>
 
-      {/* --- PRODUCT FORM VIEW --- */}
-      {viewMode === "form" && (
-        <div className="card-mono p-8 shadow-2xl max-w-4xl mx-auto">
-          <h2 className="text-xl font-black text-center text-[var(--text-main)] mb-8">
-            Product Master Form View
-          </h2>
-
+      {/* --- POPUP COMPONENT (MODAL) --- */}
+      <Modal
+        isOpen={showModal}
+        onClose={() => setShowModal(false)}
+        title={editingId ? "Edit Product" : "Create New Product"}
+        maxWidth="max-w-3xl"
+      >
+        <div className="p-2">
           {err && (
             <div className="mb-6 rounded-lg bg-red-500/10 border border-red-500/30 p-3 text-xs text-red-500 font-medium text-center">
               {err}
@@ -316,25 +295,25 @@ export default function ProductsMasterPage() {
           )}
 
           <form onSubmit={handleConfirm} className="space-y-6 text-xs">
-            {/* Product Name (Full Width Underline Input) */}
+            {/* Product Name */}
             <div className="grid grid-cols-12 items-center gap-4 border-b border-[var(--border-color)] pb-4">
-              <label className="col-span-3 font-bold text-sm text-[var(--text-main)]">
-                Product Name
+              <label className="col-span-3 font-bold text-xs text-[var(--text-main)]">
+                Product Name *
               </label>
               <input
                 type="text"
                 value={form.name}
                 onChange={(e) => setForm({ ...form, name: e.target.value })}
                 placeholder="Enter Product Name (e.g. Air Conditioner)"
-                className="col-span-9 rounded-md border-b-2 border-[var(--border-color)] bg-transparent px-3 py-2 text-sm text-[var(--text-main)] font-semibold focus:outline-none focus:border-[var(--text-main)]"
+                className="col-span-9 rounded-md border border-[var(--border-color)] bg-[var(--bg-primary)] px-3 py-2 text-xs text-[var(--text-main)] font-semibold focus:outline-none focus:border-[var(--text-main)]"
                 required
               />
             </div>
 
-            {/* Product Type (Dropdown Selection of Goods, Service, Combo) */}
+            {/* Product Type */}
             <div className="grid grid-cols-12 items-center gap-4 border-b border-[var(--border-color)] pb-4">
               <label className="col-span-3 font-bold text-xs text-[var(--text-main)]">
-                Product Type
+                Product Type *
               </label>
               <div className="col-span-9">
                 <select
@@ -346,26 +325,20 @@ export default function ProductsMasterPage() {
                   <option value="SERVICE">Service</option>
                   <option value="COMBO">Combo</option>
                 </select>
-                <p className="mt-1 text-[10px] text-[var(--text-muted)]">
-                  Provide Drop down selection of Goods, Service, Combo
-                </p>
               </div>
             </div>
 
-            {/* Category (Many2one selection with create on the fly) */}
+            {/* Category Dropdown */}
             <div className="grid grid-cols-12 items-center gap-4 border-b border-[var(--border-color)] pb-4">
               <label className="col-span-3 font-bold text-xs text-[var(--text-main)]">
-                Category
+                Category *
               </label>
-              <div className="col-span-9 flex items-center gap-3">
+              <div className="col-span-9 flex items-center gap-2">
                 <select
                   value={form.categoryId}
                   onChange={(e) => setForm({ ...form, categoryId: e.target.value })}
                   className="flex-1 rounded-md border border-[var(--border-color)] bg-[var(--bg-primary)] px-3 py-2 text-xs text-[var(--text-main)] font-semibold focus:outline-none focus:border-[var(--text-main)]"
                 >
-                  <option value="" disabled>
-                    Select Category...
-                  </option>
                   {categories.map((c) => (
                     <option key={c.id} value={c.id}>
                       {c.name}
@@ -377,164 +350,200 @@ export default function ProductsMasterPage() {
                   type="button"
                   onClick={() => setShowNewCategoryModal(true)}
                   className="btn-outline px-3 py-2 text-xs font-bold rounded-md whitespace-nowrap"
-                  title="Create Category On The Fly"
                 >
                   + New Category
                 </button>
               </div>
             </div>
 
-            {/* Layout with Image Upload Box on Left & Sales Price/Cost on Right */}
-            <div className="grid grid-cols-1 md:grid-cols-12 gap-8 items-start pt-2">
-              {/* Left Side: Upload Image Box */}
-              <div className="md:col-span-4 flex flex-col items-center justify-center p-6 border-2 border-dashed border-[var(--border-color)] rounded-xl bg-[var(--badge-bg)] text-center relative hover:border-[var(--text-main)] transition-colors min-h-[220px]">
-                {form.image ? (
-                  <div className="relative group w-full flex flex-col items-center">
-                    <img
-                      src={form.image}
-                      alt="Product Preview"
-                      className="w-32 h-32 object-cover rounded-xl border border-[var(--border-color)] shadow-md mb-2"
-                    />
-                    <button
-                      type="button"
-                      onClick={() => setForm({ ...form, image: "" })}
-                      className="text-[11px] font-bold text-red-500 hover:underline"
-                    >
-                      Remove Image
-                    </button>
-                  </div>
-                ) : (
-                  <label className="cursor-pointer flex flex-col items-center justify-center w-full h-full space-y-2 py-6">
-                    <svg className="w-10 h-10 text-[var(--text-muted)]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                    </svg>
-                    <span className="font-bold text-xs text-[var(--text-main)]">
-                      Upload Image
-                    </span>
-                    <span className="text-[10px] text-[var(--text-muted)]">
-                      Click to choose product image
-                    </span>
-                    <input
-                      type="file"
-                      accept="image/*"
-                      onChange={handleImageUpload}
-                      className="hidden"
-                    />
-                  </label>
-                )}
-              </div>
-
-              {/* Right Side: Sales Price & Cost */}
-              <div className="md:col-span-8 space-y-6 pt-4">
-                {/* Sales Price */}
-                <div className="grid grid-cols-3 items-center gap-3">
-                  <label className="font-bold text-xs text-[var(--text-main)]">
-                    Sales Price
-                  </label>
-                  <div className="col-span-2 flex items-center gap-2">
-                    <span className="font-bold text-xs text-[var(--text-muted)]">Rs.</span>
-                    <input
-                      type="number"
-                      step="0.01"
-                      value={form.salesPrice}
-                      onChange={(e) => setForm({ ...form, salesPrice: e.target.value })}
-                      placeholder="100.00"
-                      className="w-full rounded-md border-b-2 border-[var(--border-color)] bg-transparent px-3 py-2 text-xs text-[var(--text-main)] font-mono focus:outline-none focus:border-[var(--text-main)]"
-                      required
-                    />
-                  </div>
+            {/* Sales Price & Cost */}
+            <div className="grid grid-cols-12 items-center gap-4 border-b border-[var(--border-color)] pb-4">
+              <label className="col-span-3 font-bold text-xs text-[var(--text-main)]">
+                Pricing (₹)
+              </label>
+              <div className="col-span-9 grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-[10px] text-[var(--text-muted)] font-semibold mb-1">Sales Price</label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    value={form.salesPrice}
+                    onChange={(e) => setForm({ ...form, salesPrice: e.target.value })}
+                    placeholder="0.00"
+                    className="w-full rounded-md border border-[var(--border-color)] bg-[var(--bg-primary)] px-3 py-2 text-xs text-[var(--text-main)] font-mono font-bold"
+                  />
                 </div>
-
-                {/* Cost */}
-                <div className="grid grid-cols-3 items-center gap-3">
-                  <label className="font-bold text-xs text-[var(--text-main)]">
-                    Cost
-                  </label>
-                  <div className="col-span-2 flex items-center gap-2">
-                    <span className="font-bold text-xs text-[var(--text-muted)]">Rs.</span>
-                    <input
-                      type="number"
-                      step="0.01"
-                      value={form.cost}
-                      onChange={(e) => setForm({ ...form, cost: e.target.value })}
-                      placeholder="50.00"
-                      className="w-full rounded-md border-b-2 border-[var(--border-color)] bg-transparent px-3 py-2 text-xs text-[var(--text-main)] font-mono focus:outline-none focus:border-[var(--text-main)]"
-                      required
-                    />
-                  </div>
+                <div>
+                  <label className="block text-[10px] text-[var(--text-muted)] font-semibold mb-1">Cost</label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    value={form.cost}
+                    onChange={(e) => setForm({ ...form, cost: e.target.value })}
+                    placeholder="0.00"
+                    className="w-full rounded-md border border-[var(--border-color)] bg-[var(--bg-primary)] px-3 py-2 text-xs text-[var(--text-main)] font-mono font-bold"
+                  />
                 </div>
               </div>
             </div>
+
+            {/* Image Upload */}
+            <div className="grid grid-cols-12 items-start gap-4 pb-2">
+              <label className="col-span-3 font-bold text-xs text-[var(--text-main)] pt-2">
+                Product Image
+              </label>
+              <div className="col-span-9 flex items-center gap-4">
+                {form.image ? (
+                  <img
+                    src={form.image}
+                    alt="Preview"
+                    className="w-16 h-16 rounded-lg object-cover border border-[var(--border-color)]"
+                  />
+                ) : (
+                  <div className="w-16 h-16 rounded-lg bg-[var(--badge-bg)] border border-[var(--border-color)] flex items-center justify-center text-xs text-[var(--text-muted)] font-mono">
+                    No Image
+                  </div>
+                )}
+                <div className="space-y-1">
+                  <input
+                    type="file"
+                    accept="image/*"
+                    onChange={handleImageUpload}
+                    className="text-xs text-[var(--text-muted)] file:mr-2 file:py-1 file:px-3 file:rounded-md file:border file:border-[var(--border-color)] file:bg-[var(--bg-primary)] file:text-[var(--text-main)] file:text-xs file:font-semibold"
+                  />
+                  {form.image && (
+                    <button
+                      type="button"
+                      onClick={() => setForm({ ...form, image: "" })}
+                      className="text-[10px] text-red-400 hover:underline block"
+                    >
+                      Remove Image
+                    </button>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            {/* Modal Actions */}
+            <div className="flex justify-end gap-3 pt-4 border-t border-[var(--border-color)]">
+              <button
+                type="button"
+                onClick={() => setShowModal(false)}
+                className="btn-outline px-4 py-2 text-xs font-bold rounded-lg"
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                disabled={saving}
+                className="btn-outline px-5 py-2 text-xs font-bold rounded-lg border-2 bg-[var(--badge-bg)]"
+              >
+                {saving ? "Saving..." : editingId ? "Update Product" : "Create Product"}
+              </button>
+            </div>
           </form>
         </div>
-      )}
+      </Modal>
 
-      {/* --- PRODUCT LIST VIEW --- */}
+      {/* --- INLINE CATEGORY CREATION MODAL --- */}
+      <Modal
+        isOpen={showNewCategoryModal}
+        onClose={() => setShowNewCategoryModal(false)}
+        title="Add New Category"
+        maxWidth="max-w-md"
+      >
+        <div className="space-y-4 text-xs">
+          <div>
+            <label className="block text-xs font-semibold text-[var(--text-muted)] mb-1">Category Name *</label>
+            <input
+              type="text"
+              value={newCategoryName}
+              onChange={(e) => setNewCategoryName(e.target.value)}
+              placeholder="e.g. Electronics, Services"
+              className="w-full rounded-md border border-[var(--border-color)] bg-[var(--bg-primary)] px-3 py-2 text-xs text-[var(--text-main)]"
+            />
+          </div>
+          <div className="flex justify-end gap-2 pt-2">
+            <button
+              onClick={() => setShowNewCategoryModal(false)}
+              className="btn-outline px-3 py-1.5 text-xs font-bold rounded-md"
+            >
+              Cancel
+            </button>
+            <button
+              onClick={handleCreateCategoryOnTheFly}
+              disabled={creatingCategory}
+              className="btn-outline px-4 py-1.5 text-xs font-bold rounded-md bg-[var(--badge-bg)]"
+            >
+              {creatingCategory ? "Creating..." : "Save Category"}
+            </button>
+          </div>
+        </div>
+      </Modal>
+
+      {/* --- LIST VIEW --- */}
       {viewMode === "list" && (
         <div className="card-mono shadow-2xl overflow-hidden">
-          <div className="p-4 border-b border-[var(--border-color)] bg-[var(--badge-bg)]">
-            <h2 className="text-lg font-black text-[var(--text-main)]">
-              Product Master List View
-            </h2>
+          <div className="p-4 border-b border-[var(--border-color)] bg-[var(--badge-bg)] flex justify-between items-center">
+            <div>
+              <h2 className="text-lg font-black text-[var(--text-main)]">Products Master</h2>
+              <p className="text-xs text-[var(--text-muted)] mt-0.5">
+                Click any product item to edit details in popup component.
+              </p>
+            </div>
+            <span className="text-xs font-semibold text-[var(--text-muted)]">Total: {products.length}</span>
           </div>
 
           <div className="overflow-x-auto">
             {loading ? (
-              <div className="py-16 text-center text-xs text-[var(--text-muted)]">
-                Loading products...
-              </div>
+              <div className="py-16 text-center text-xs text-[var(--text-muted)]">Loading products...</div>
             ) : products.length === 0 ? (
-              <div className="py-16 text-center text-xs text-[var(--text-muted)]">
-                No products found.
-              </div>
+              <div className="py-16 text-center text-xs text-[var(--text-muted)]">No products found.</div>
             ) : (
               <table className="w-full text-left text-xs">
                 <thead>
                   <tr className="border-b border-[var(--border-color)] bg-[var(--card-bg)] text-[var(--text-muted)] font-bold uppercase tracking-wider">
-                    <th className="py-3 px-4">Image</th>
-                    <th className="py-3 px-4">Product</th>
-                    <th className="py-3 px-4">Category</th>
-                    <th className="py-3 px-4">Type</th>
-                    <th className="py-3 px-4">Sales Price</th>
-                    <th className="py-3 px-4">Cost</th>
+                    <th className="py-3.5 px-4">Image</th>
+                    <th className="py-3.5 px-4">Product Name</th>
+                    <th className="py-3.5 px-4">Type</th>
+                    <th className="py-3.5 px-4">Category</th>
+                    <th className="py-3.5 px-4 text-right">Sales Price</th>
+                    <th className="py-3.5 px-4 text-right">Cost</th>
+                    <th className="py-3.5 px-4 text-right">Actions</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-[var(--border-color)]/60">
                   {products.map((p) => (
                     <tr
                       key={p.id}
-                      onClick={() => handleRowClick(p)}
+                      onClick={() => handleEdit(p)}
                       className="hover:bg-[var(--card-hover)] cursor-pointer transition-colors"
                     >
-                      <td className="py-3 px-4">
+                      <td className="py-2 px-4">
                         {p.image ? (
-                          <img
-                            src={p.image}
-                            alt={p.name}
-                            className="w-8 h-8 rounded-lg object-cover border border-[var(--border-color)] shadow-sm"
-                          />
+                          <img src={p.image} alt={p.name} className="w-8 h-8 rounded object-cover border border-[var(--border-color)]" />
                         ) : (
-                          <div className="w-8 h-8 rounded-lg bg-[var(--text-main)] text-[var(--bg-primary)] font-black text-xs flex items-center justify-center shadow-sm">
+                          <div className="w-8 h-8 rounded bg-[var(--badge-bg)] border border-[var(--border-color)] flex items-center justify-center font-bold text-[10px]">
                             {p.name.substring(0, 2).toUpperCase()}
                           </div>
                         )}
                       </td>
-                      <td className="py-3 px-4 font-bold text-[var(--text-main)]">
-                        {p.name}
-                      </td>
-                      <td className="py-3 px-4 font-medium text-[var(--text-muted)]">
-                        {p.category?.name || "—"}
-                      </td>
-                      <td className="py-3 px-4">
-                        <span className="rounded bg-[var(--badge-bg)] border border-[var(--border-color)] px-1.5 py-0.5 text-[10px] font-bold text-[var(--text-main)]">
+                      <td className="py-3.5 px-4 font-bold text-[var(--text-main)]">{p.name}</td>
+                      <td className="py-3.5 px-4">
+                        <span className="inline-block px-2 py-0.5 rounded text-[10px] font-bold bg-[var(--badge-bg)] border border-[var(--border-color)]">
                           {p.type}
                         </span>
                       </td>
-                      <td className="py-3 px-4 font-mono font-bold text-[var(--text-main)]">
-                        Rs. {p.salesPrice.toLocaleString()}
-                      </td>
-                      <td className="py-3 px-4 font-mono text-[var(--text-muted)]">
-                        Rs. {p.cost.toLocaleString()}
+                      <td className="py-3.5 px-4 text-[var(--text-muted)]">{p.category?.name || "—"}</td>
+                      <td className="py-3.5 px-4 text-right font-mono font-bold text-emerald-400">₹{p.salesPrice?.toLocaleString()}</td>
+                      <td className="py-3.5 px-4 text-right font-mono text-[var(--text-muted)]">₹{p.cost?.toLocaleString()}</td>
+                      <td className="py-3.5 px-4 text-right" onClick={(e) => e.stopPropagation()}>
+                        <button
+                          onClick={() => handleEdit(p)}
+                          className="px-2.5 py-1 text-[11px] font-bold rounded border border-[var(--border-color)] hover:bg-[var(--badge-bg)] text-[var(--text-main)]"
+                        >
+                          Edit
+                        </button>
                       </td>
                     </tr>
                   ))}
@@ -545,104 +554,45 @@ export default function ProductsMasterPage() {
         </div>
       )}
 
-      {/* --- PRODUCT KANBAN VIEW --- */}
+      {/* --- KANBAN VIEW --- */}
       {viewMode === "kanban" && (
         <div className="space-y-4">
-          <div className="card-mono p-4 border-b border-[var(--border-color)]">
-            <h2 className="text-lg font-black text-[var(--text-main)]">
-              Product Master Kanban View
-            </h2>
+          <div className="card-mono p-4 border-b border-[var(--border-color)] flex justify-between items-center">
+            <h2 className="text-lg font-black text-[var(--text-main)]">Products Master</h2>
+            <span className="text-xs font-semibold text-[var(--text-muted)]">Total: {products.length}</span>
           </div>
 
           {loading ? (
-            <div className="card-mono py-16 text-center text-xs text-[var(--text-muted)]">
-              Loading kanban cards...
-            </div>
+            <div className="card-mono py-16 text-center text-xs text-[var(--text-muted)]">Loading kanban cards...</div>
           ) : products.length === 0 ? (
-            <div className="card-mono py-16 text-center text-xs text-[var(--text-muted)]">
-              No products found.
-            </div>
+            <div className="card-mono py-16 text-center text-xs text-[var(--text-muted)]">No products found.</div>
           ) : (
             <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
               {products.map((p) => (
                 <div
                   key={p.id}
-                  onClick={() => handleRowClick(p)}
-                  className="card-mono p-4 hover:shadow-xl transition-all cursor-pointer border border-[var(--border-color)] hover:border-[var(--text-main)] flex items-start gap-3.5"
+                  onClick={() => handleEdit(p)}
+                  className="card-mono p-4 hover:shadow-xl cursor-pointer transition-all border hover:border-[var(--text-main)] flex items-start gap-3"
                 >
-                  {/* Image */}
                   {p.image ? (
-                    <img
-                      src={p.image}
-                      alt={p.name}
-                      className="w-14 h-14 rounded-xl object-cover border border-[var(--border-color)] shadow-sm shrink-0"
-                    />
+                    <img src={p.image} alt={p.name} className="w-12 h-12 rounded-xl object-cover border border-[var(--border-color)] shadow-sm shrink-0" />
                   ) : (
-                    <div className="w-14 h-14 rounded-xl bg-[var(--text-main)] text-[var(--bg-primary)] font-black text-sm flex items-center justify-center shrink-0 shadow-sm">
+                    <div className="w-12 h-12 rounded-xl bg-[var(--text-main)] text-[var(--bg-primary)] font-black text-sm flex items-center justify-center shrink-0 shadow-sm">
                       {p.name.substring(0, 2).toUpperCase()}
                     </div>
                   )}
 
-                  {/* Info */}
                   <div className="space-y-1 min-w-0 flex-1 text-xs">
-                    <h3 className="font-bold text-sm text-[var(--text-main)] truncate">
-                      {p.name}
-                    </h3>
-                    <p className="font-mono text-[11px] font-semibold text-[var(--text-main)]">
-                      Sales Price: {p.salesPrice.toLocaleString()}
-                    </p>
-                    <p className="font-mono text-[11px] text-[var(--text-muted)]">
-                      Cost: {p.cost.toLocaleString()}
-                    </p>
+                    <h3 className="font-bold text-[var(--text-main)] truncate">{p.name}</h3>
+                    <span className="inline-block rounded bg-[var(--badge-bg)] border border-[var(--border-color)] px-1.5 py-0.5 text-[10px] font-semibold text-[var(--text-muted)]">
+                      {p.type}
+                    </span>
+                    <p className="font-mono font-bold text-emerald-400">₹{p.salesPrice?.toLocaleString()}</p>
                   </div>
                 </div>
               ))}
             </div>
           )}
-        </div>
-      )}
-
-      {/* --- INLINE CREATE CATEGORY MODAL --- */}
-      {showNewCategoryModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
-          <div className="card-mono w-full max-w-md p-6 shadow-2xl space-y-4">
-            <h3 className="text-base font-bold text-[var(--text-main)]">
-              Create New Category On The Fly
-            </h3>
-            <div>
-              <label className="block text-xs font-semibold text-[var(--text-muted)] mb-1">
-                Category Name
-              </label>
-              <input
-                type="text"
-                value={newCategoryName}
-                onChange={(e) => setNewCategoryName(e.target.value)}
-                placeholder="e.g. Electronics, Home Decor"
-                className="w-full rounded-lg border border-[var(--border-color)] bg-[var(--bg-primary)] px-3.5 py-2 text-xs text-[var(--text-main)] focus:outline-none focus:border-[var(--text-main)]"
-                autoFocus
-              />
-            </div>
-            <div className="flex justify-end gap-3 pt-2">
-              <button
-                type="button"
-                onClick={() => {
-                  setShowNewCategoryModal(false);
-                  setNewCategoryName("");
-                }}
-                className="btn-outline px-4 py-1.5 text-xs font-bold rounded-lg"
-              >
-                Cancel
-              </button>
-              <button
-                type="button"
-                onClick={handleCreateCategoryOnTheFly}
-                disabled={creatingCategory || !newCategoryName.trim()}
-                className="btn-primary px-4 py-1.5 text-xs font-bold rounded-lg"
-              >
-                {creatingCategory ? "Saving..." : "Save & Select"}
-              </button>
-            </div>
-          </div>
         </div>
       )}
     </main>

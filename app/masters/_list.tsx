@@ -1,7 +1,9 @@
 "use client";
+
 import React, { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import Modal from "@/components/Modal";
 
 function useList(url: string) {
   const [data, setData] = useState<any>(null);
@@ -12,7 +14,8 @@ function useList(url: string) {
     setLoading(true);
     try {
       const r = await fetch(q ? `${url}?search=${encodeURIComponent(q)}` : url);
-      setData(await r.json());
+      const resData = await r.json().catch(() => ({}));
+      setData(resData);
     } catch (err) {
       console.error(err);
     } finally {
@@ -44,6 +47,7 @@ export function ListPage({
 }) {
   const router = useRouter();
   const [viewMode, setViewMode] = useState<"list" | "kanban">("list");
+  const [selectedRecord, setSelectedRecord] = useState<any>(null);
   const { data, q, setQ, load, loading } = useList(url);
   const key = Object.keys(data ?? {}).find((k) => Array.isArray((data as any)[k])) ?? "";
   const rows: any[] = key ? (data as any)[key] : [];
@@ -94,7 +98,7 @@ export function ListPage({
           <div className="flex items-center rounded-lg border border-[var(--border-color)] bg-[var(--bg-primary)] p-1 gap-1">
             <button
               onClick={() => setViewMode("list")}
-              title="Shift to List View"
+              aria-label="List"
               className={`p-1.5 rounded-md transition-colors ${
                 viewMode === "list"
                   ? "bg-[var(--text-main)] text-[var(--bg-primary)]"
@@ -108,7 +112,7 @@ export function ListPage({
 
             <button
               onClick={() => setViewMode("kanban")}
-              title="Shift to Kanban View"
+              aria-label="Kanban"
               className={`p-1.5 rounded-md transition-colors ${
                 viewMode === "kanban"
                   ? "bg-[var(--text-main)] text-[var(--bg-primary)]"
@@ -123,11 +127,50 @@ export function ListPage({
         </div>
       </div>
 
+      {/* --- POPUP COMPONENT (MODAL) FOR RECORD DETAILS --- */}
+      <Modal
+        isOpen={Boolean(selectedRecord)}
+        onClose={() => setSelectedRecord(null)}
+        title={`${title} Item Details`}
+      >
+        {selectedRecord && (
+          <div className="space-y-4 text-xs">
+            <div className="card-mono p-4 bg-[var(--badge-bg)] border border-[var(--border-color)]">
+              <h3 className="font-bold text-sm text-[var(--text-main)] mb-2">
+                {selectedRecord.name || selectedRecord.code || selectedRecord.id}
+              </h3>
+              <div className="grid grid-cols-2 gap-3 text-xs">
+                {Object.entries(selectedRecord)
+                  .filter(([k, v]) => typeof v !== "object" && k !== "id")
+                  .map(([key, val]) => (
+                    <div key={key} className="border-b border-[var(--border-color)]/40 pb-1">
+                      <span className="text-[var(--text-muted)] font-semibold capitalize">
+                        {key.replace(/([A-Z])/g, " $1")}:
+                      </span>{" "}
+                      <span className="font-mono font-bold text-[var(--text-main)]">
+                        {String(val)}
+                      </span>
+                    </div>
+                  ))}
+              </div>
+            </div>
+            <div className="flex justify-end pt-2">
+              <button
+                onClick={() => setSelectedRecord(null)}
+                className="btn-outline px-4 py-2 text-xs font-bold rounded-lg"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        )}
+      </Modal>
+
       {/* Main Content Area */}
       {viewMode === "list" ? (
         <div className="card-mono overflow-hidden shadow-2xl">
           <div className="p-4 border-b border-[var(--border-color)] bg-[var(--badge-bg)] flex justify-between items-center">
-            <h2 className="text-lg font-black text-[var(--text-main)]">{title} (List View)</h2>
+            <h2 className="text-lg font-black text-[var(--text-main)]">{title}</h2>
             <span className="text-xs font-semibold text-[var(--text-muted)]">Total: {rows.length}</span>
           </div>
 
@@ -153,7 +196,11 @@ export function ListPage({
                 </thead>
                 <tbody className="divide-y divide-[var(--border-color)]/60">
                   {rows.map((r: any, i: number) => (
-                    <tr key={r.id ?? i} className="hover:bg-[var(--card-hover)] transition-colors">
+                    <tr
+                      key={r.id ?? i}
+                      onClick={() => setSelectedRecord(r)}
+                      className="hover:bg-[var(--card-hover)] cursor-pointer transition-colors"
+                    >
                       {renderRow(r)}
                     </tr>
                   ))}
@@ -165,7 +212,7 @@ export function ListPage({
       ) : (
         <div className="space-y-4">
           <div className="card-mono p-4 border-b border-[var(--border-color)] flex justify-between items-center">
-            <h2 className="text-lg font-black text-[var(--text-main)]">{title} (Kanban View)</h2>
+            <h2 className="text-lg font-black text-[var(--text-main)]">{title}</h2>
             <span className="text-xs font-semibold text-[var(--text-muted)]">Total: {rows.length}</span>
           </div>
 
@@ -179,44 +226,38 @@ export function ListPage({
             </div>
           ) : (
             <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-              {rows.map((r: any, i: number) =>
-                renderKanbanCard ? (
-                  renderKanbanCard(r)
-                ) : (
-                  <div
-                    key={r.id ?? i}
-                    className="card-mono p-4 hover:shadow-xl transition-all border hover:border-[var(--text-main)] flex items-start gap-3"
-                  >
-                    {r.image ? (
-                      <img
-                        src={r.image}
-                        alt={r.name || "Item"}
-                        className="w-12 h-12 rounded-xl object-cover border border-[var(--border-color)] shadow-sm shrink-0"
-                      />
-                    ) : (
-                      <div className="w-12 h-12 rounded-xl bg-[var(--text-main)] text-[var(--bg-primary)] font-black text-sm flex items-center justify-center shrink-0 shadow-sm">
-                        {(r.name || r.id || "M").substring(0, 2).toUpperCase()}
-                      </div>
-                    )}
+              {rows.map((r: any, i: number) => (
+                <div key={r.id ?? i} onClick={() => setSelectedRecord(r)} className="cursor-pointer">
+                  {renderKanbanCard ? (
+                    renderKanbanCard(r)
+                  ) : (
+                    <div className="card-mono p-4 hover:shadow-xl transition-all border hover:border-[var(--text-main)] flex items-start gap-3">
+                      {r.image ? (
+                        <img
+                          src={r.image}
+                          alt={r.name || "Item"}
+                          className="w-12 h-12 rounded-xl object-cover border border-[var(--border-color)] shadow-sm shrink-0"
+                        />
+                      ) : (
+                        <div className="w-12 h-12 rounded-xl bg-[var(--text-main)] text-[var(--bg-primary)] font-black text-sm flex items-center justify-center shrink-0 shadow-sm">
+                          {(r.name || r.id || "M").substring(0, 2).toUpperCase()}
+                        </div>
+                      )}
 
-                    <div className="space-y-1 min-w-0 flex-1 text-xs">
-                      <h3 className="font-bold text-[var(--text-main)] truncate">
-                        {r.name || r.id}
-                      </h3>
-                      {r.type && (
-                        <span className="inline-block rounded bg-[var(--badge-bg)] border border-[var(--border-color)] px-1.5 py-0.5 text-[10px] font-semibold text-[var(--text-muted)]">
-                          {r.type}
-                        </span>
-                      )}
-                      {r.salesPrice !== undefined && (
-                        <p className="font-mono text-[var(--text-muted)]">
-                          ₹{r.salesPrice?.toLocaleString()}
-                        </p>
-                      )}
+                      <div className="space-y-1 min-w-0 flex-1 text-xs">
+                        <h3 className="font-bold text-[var(--text-main)] truncate">
+                          {r.name || r.id}
+                        </h3>
+                        {r.type && (
+                          <span className="inline-block rounded bg-[var(--badge-bg)] border border-[var(--border-color)] px-1.5 py-0.5 text-[10px] font-semibold text-[var(--text-muted)]">
+                            {r.type}
+                          </span>
+                        )}
+                      </div>
                     </div>
-                  </div>
-                )
-              )}
+                  )}
+                </div>
+              ))}
             </div>
           )}
         </div>

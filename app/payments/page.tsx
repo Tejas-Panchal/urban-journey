@@ -9,7 +9,7 @@ export default function PaymentsPage() {
   const loadData = async () => {
     setLoading(true);
     try {
-      const res = await fetch("/api/payments").then((r) => r.json());
+      const res = await fetch("/api/payments").then((r) => r.json().catch(() => ({ payments: [] }))).catch(() => ({ payments: [] }));
       setPayments(res.payments || []);
     } catch (err) {
       console.error(err);
@@ -95,7 +95,7 @@ export default function PaymentsPage() {
                       {new Date(p.date).toLocaleDateString()}
                     </td>
                     <td className="py-3.5 px-4 font-medium text-[var(--text-main)]">
-                      {p.partnerId}
+                      {p.partner?.name || p.partnerId}
                     </td>
                     <td className="py-3.5 px-4 font-mono text-[var(--text-muted)]">
                       {p.invoiceId ? `Invoice: ${p.invoiceId}` : p.billId ? `Bill: ${p.billId}` : "-"}

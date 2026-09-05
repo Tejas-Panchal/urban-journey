@@ -2,6 +2,7 @@
 
 import React, { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import Modal from "@/components/Modal";
 
 interface Account {
   id: string;
@@ -24,7 +25,6 @@ const JOURNAL_TYPES = [
   {
     key: "SALES",
     label: "Sales Journal",
-    desc: "Customer invoices and sales transactions",
     color: "bg-emerald-500/10 text-emerald-500 border-emerald-500/30",
     icon: (
       <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -35,7 +35,6 @@ const JOURNAL_TYPES = [
   {
     key: "PURCHASE",
     label: "Purchase Journal",
-    desc: "Vendor bills and purchase transactions",
     color: "bg-sky-500/10 text-sky-500 border-sky-500/30",
     icon: (
       <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -46,7 +45,6 @@ const JOURNAL_TYPES = [
   {
     key: "BANK",
     label: "Bank Journal",
-    desc: "Bank-related transactions & transfers",
     color: "bg-purple-500/10 text-purple-500 border-purple-500/30",
     icon: (
       <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -57,7 +55,6 @@ const JOURNAL_TYPES = [
   {
     key: "CASH",
     label: "Cash Journal",
-    desc: "Cash receipts and petty cash payments",
     color: "bg-amber-500/10 text-amber-500 border-amber-500/30",
     icon: (
       <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -72,12 +69,12 @@ export default function JournalsMasterPage() {
   const [journals, setJournals] = useState<Journal[]>([]);
   const [accounts, setAccounts] = useState<Account[]>([]);
   const [loading, setLoading] = useState(true);
-  const [viewMode, setViewMode] = useState<"list" | "kanban" | "form">("list");
+  const [viewMode, setViewMode] = useState<"list" | "kanban">("list");
+  const [showModal, setShowModal] = useState(false);
   const [search, setSearch] = useState("");
   const [err, setErr] = useState("");
   const [successMsg, setSuccessMsg] = useState("");
   const [saving, setSaving] = useState(false);
-  const [showConcept, setShowConcept] = useState(true);
 
   // Form State
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -93,7 +90,7 @@ export default function JournalsMasterPage() {
     try {
       const q = search ? `?search=${encodeURIComponent(search)}` : "";
       const res = await fetch(`/api/journals${q}`);
-      const data = await res.json();
+      const data = await res.json().catch(() => ({}));
       if (res.ok && data.journals) {
         setJournals(data.journals);
       }
@@ -107,7 +104,7 @@ export default function JournalsMasterPage() {
   const fetchAccounts = async () => {
     try {
       const res = await fetch("/api/accounts");
-      const data = await res.json();
+      const data = await res.json().catch(() => ({}));
       if (res.ok && data.accounts) {
         setAccounts(data.accounts);
       }
@@ -131,7 +128,7 @@ export default function JournalsMasterPage() {
     });
     setErr("");
     setSuccessMsg("");
-    setViewMode("form");
+    setShowModal(true);
   };
 
   const handleEdit = (j: Journal) => {
@@ -144,7 +141,7 @@ export default function JournalsMasterPage() {
     });
     setErr("");
     setSuccessMsg("");
-    setViewMode("form");
+    setShowModal(true);
   };
 
   const handleConfirm = async (e?: React.FormEvent) => {
@@ -175,7 +172,7 @@ export default function JournalsMasterPage() {
         body: JSON.stringify(payload),
       });
 
-      const data = await res.json();
+      const data = await res.json().catch(() => ({}));
       if (!res.ok) {
         throw new Error(data.error || "Failed to save journal");
       }
@@ -183,7 +180,7 @@ export default function JournalsMasterPage() {
       setSuccessMsg(editingId ? "Journal updated successfully!" : "Journal created successfully!");
       await fetchJournals();
       setTimeout(() => {
-        setViewMode("list");
+        setShowModal(false);
       }, 600);
     } catch (error: any) {
       setErr(error.message);
@@ -192,14 +189,15 @@ export default function JournalsMasterPage() {
     }
   };
 
-  const handleDelete = async (id: string) => {
+  const handleDelete = async (id: string, e?: React.MouseEvent) => {
+    if (e) e.stopPropagation();
     if (!confirm("Are you sure you want to delete this journal?")) return;
     try {
       const res = await fetch(`/api/journals/${id}`, { method: "DELETE" });
       if (res.ok) {
         await fetchJournals();
       } else {
-        const data = await res.json();
+        const data = await res.json().catch(() => ({}));
         alert(data.error || "Failed to delete journal");
       }
     } catch (err) {
@@ -227,49 +225,24 @@ export default function JournalsMasterPage() {
             onClick={handleNew}
             className="btn-outline px-5 py-2 text-xs font-bold rounded-lg border-2"
           >
-            New Journal
+            + New Journal
           </button>
 
-          {viewMode === "form" && (
-            <button
-              onClick={() => handleConfirm()}
-              disabled={saving}
-              className="btn-outline px-5 py-2 text-xs font-bold rounded-lg border-2 bg-[var(--badge-bg)]"
-            >
-              {saving ? "Saving..." : "Confirm"}
-            </button>
-          )}
-
-          {viewMode !== "form" && (
-            <div className="relative">
-              <input
-                type="text"
-                placeholder="Search Journal..."
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                className="w-64 rounded-lg border border-[var(--border-color)] bg-[var(--bg-primary)] px-3.5 py-1.5 text-xs text-[var(--text-main)] focus:outline-none focus:border-[var(--text-main)] font-mono"
-              />
-            </div>
-          )}
+          <div className="relative">
+            <input
+              type="text"
+              placeholder="Search Journal..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="w-64 rounded-lg border border-[var(--border-color)] bg-[var(--bg-primary)] px-3.5 py-1.5 text-xs text-[var(--text-main)] focus:outline-none focus:border-[var(--text-main)] font-mono"
+            />
+          </div>
         </div>
 
-        {/* Right View Switcher & Concept Toggle */}
+        {/* Right View Switcher & Navigation */}
         <div className="flex items-center gap-3">
           <button
-            onClick={() => setShowConcept(!showConcept)}
-            className="px-3 py-1.5 text-xs font-semibold rounded-lg border border-[var(--border-color)] text-[var(--text-muted)] hover:text-[var(--text-main)] transition-colors"
-          >
-            {showConcept ? "Hide Concept Guide" : "Show Concept Guide"}
-          </button>
-
-          <button
-            onClick={() => {
-              if (viewMode === "form") {
-                setViewMode("list");
-              } else {
-                router.push("/dashboard");
-              }
-            }}
+            onClick={() => router.push("/dashboard")}
             className="btn-outline px-5 py-2 text-xs font-bold rounded-lg"
           >
             Back
@@ -278,7 +251,7 @@ export default function JournalsMasterPage() {
           <div className="flex items-center rounded-lg border border-[var(--border-color)] bg-[var(--bg-primary)] p-1 gap-1">
             <button
               onClick={() => setViewMode("list")}
-              title="List View"
+              aria-label="List"
               className={`p-1.5 rounded-md transition-colors ${
                 viewMode === "list"
                   ? "bg-[var(--text-main)] text-[var(--bg-primary)]"
@@ -292,7 +265,7 @@ export default function JournalsMasterPage() {
 
             <button
               onClick={() => setViewMode("kanban")}
-              title="Kanban View"
+              aria-label="Kanban"
               className={`p-1.5 rounded-md transition-colors ${
                 viewMode === "kanban"
                   ? "bg-[var(--text-main)] text-[var(--bg-primary)]"
@@ -307,52 +280,13 @@ export default function JournalsMasterPage() {
         </div>
       </div>
 
-      {/* --- CONCEPT & EXPLANATION BANNER --- */}
-      {showConcept && (
-        <div className="card-mono p-6 mb-6 shadow-xl border border-[var(--border-color)] bg-[var(--card-bg)]">
-          <div className="flex items-start justify-between gap-4 mb-4">
-            <div>
-              <h1 className="text-xl font-black text-[var(--text-main)] flex items-center gap-2">
-                <span className="p-2 rounded-lg bg-[var(--badge-bg)] border border-[var(--border-color)]">
-                  📖
-                </span>
-                Journal Master Concept
-              </h1>
-              <p className="text-xs text-[var(--text-muted)] mt-1.5 max-w-3xl leading-relaxed">
-                A <strong>Journal</strong> is a record or book used to group and organize similar accounting
-                transactions. Each journal represents a specific type of financial activity, such as sales,
-                purchases, bank transactions, or cash transactions.
-              </p>
-            </div>
-            <span className="px-3 py-1 text-[11px] font-mono font-bold rounded-full bg-[var(--badge-bg)] border border-[var(--border-color)] text-[var(--text-main)] shrink-0">
-              Odoo Accounting Spec
-            </span>
-          </div>
-
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 pt-2">
-            {JOURNAL_TYPES.map((jt) => (
-              <div
-                key={jt.key}
-                className={`p-3.5 rounded-xl border ${jt.color} transition-all hover:scale-[1.02]`}
-              >
-                <div className="flex items-center gap-2 mb-1.5">
-                  {jt.icon}
-                  <span className="font-bold text-xs">{jt.label}</span>
-                </div>
-                <p className="text-[11px] opacity-80 leading-snug">{jt.desc}</p>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* --- FORM VIEW --- */}
-      {viewMode === "form" && (
-        <div className="card-mono p-8 shadow-2xl max-w-4xl mx-auto">
-          <h2 className="text-xl font-black text-center text-[var(--text-main)] mb-8">
-            {editingId ? "Edit Journal" : "Create New Journal"}
-          </h2>
-
+      {/* --- POPUP COMPONENT (MODAL) --- */}
+      <Modal
+        isOpen={showModal}
+        onClose={() => setShowModal(false)}
+        title={editingId ? "Edit Journal" : "Create New Journal"}
+      >
+        <div className="p-2">
           {err && (
             <div className="mb-6 rounded-lg bg-red-500/10 border border-red-500/30 p-3 text-xs text-red-500 font-medium text-center">
               {err}
@@ -375,7 +309,7 @@ export default function JournalsMasterPage() {
                 value={form.name}
                 onChange={(e) => setForm({ ...form, name: e.target.value })}
                 placeholder="e.g. Customer Sales Journal, Vendor Bills Journal, Main Cash"
-                className="col-span-9 rounded-md border-b-2 border-[var(--border-color)] bg-transparent px-3 py-2 text-sm text-[var(--text-main)] font-semibold focus:outline-none focus:border-[var(--text-main)]"
+                className="col-span-9 rounded-md border border-[var(--border-color)] bg-[var(--bg-primary)] px-3 py-2 text-xs text-[var(--text-main)] font-semibold focus:outline-none focus:border-[var(--text-main)]"
                 required
               />
             </div>
@@ -449,27 +383,46 @@ export default function JournalsMasterPage() {
                 </p>
               </div>
             </div>
+
+            {/* Modal Form Actions */}
+            <div className="flex justify-end gap-3 pt-4 border-t border-[var(--border-color)]">
+              <button
+                type="button"
+                onClick={() => setShowModal(false)}
+                className="btn-outline px-4 py-2 text-xs font-bold rounded-lg"
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                disabled={saving}
+                className="btn-outline px-5 py-2 text-xs font-bold rounded-lg border-2 bg-[var(--badge-bg)]"
+              >
+                {saving ? "Saving..." : editingId ? "Update Journal" : "Create Journal"}
+              </button>
+            </div>
           </form>
         </div>
-      )}
+      </Modal>
 
       {/* --- LIST VIEW --- */}
       {viewMode === "list" && (
         <div className="card-mono shadow-2xl overflow-hidden">
           <div className="p-4 border-b border-[var(--border-color)] bg-[var(--badge-bg)] flex justify-between items-center">
-            <h2 className="text-lg font-black text-[var(--text-main)]">Journal Master List View</h2>
+            <div>
+              <h2 className="text-lg font-black text-[var(--text-main)]">Journals Master</h2>
+              <p className="text-xs text-[var(--text-muted)] mt-0.5">
+                Click any journal item to open its settings popup component.
+              </p>
+            </div>
             <span className="text-xs font-semibold text-[var(--text-muted)]">Total: {journals.length}</span>
           </div>
 
           <div className="overflow-x-auto">
             {loading ? (
-              <div className="py-16 text-center text-xs text-[var(--text-muted)]">
-                Loading journals...
-              </div>
+              <div className="py-16 text-center text-xs text-[var(--text-muted)]">Loading journals...</div>
             ) : journals.length === 0 ? (
-              <div className="py-16 text-center text-xs text-[var(--text-muted)]">
-                No journals found matching criteria.
-              </div>
+              <div className="py-16 text-center text-xs text-[var(--text-muted)]">No journals found.</div>
             ) : (
               <table className="w-full text-left text-xs">
                 <thead>
@@ -485,43 +438,25 @@ export default function JournalsMasterPage() {
                   {journals.map((j) => (
                     <tr
                       key={j.id}
-                      className="hover:bg-[var(--card-hover)] transition-colors cursor-pointer"
                       onClick={() => handleEdit(j)}
+                      className="hover:bg-[var(--card-hover)] cursor-pointer transition-colors"
                     >
-                      <td className="py-3.5 px-4 font-bold text-[var(--text-main)]">
-                        <div className="flex items-center gap-2">
-                          <span className="p-1 rounded bg-[var(--badge-bg)] border border-[var(--border-color)] text-[var(--text-main)]">
-                            {getJournalIcon(j.type)}
-                          </span>
-                          {j.name}
-                        </div>
+                      <td className="py-3.5 px-4 font-bold text-[var(--text-main)] flex items-center gap-2">
+                        <span className="p-1 rounded bg-[var(--badge-bg)] border border-[var(--border-color)]">
+                          {getJournalIcon(j.type)}
+                        </span>
+                        {j.name}
                       </td>
                       <td className="py-3.5 px-4">
-                        <span
-                          className={`inline-block rounded border px-2 py-0.5 text-[10px] font-bold ${getBadgeStyle(
-                            j.type
-                          )}`}
-                        >
+                        <span className={`inline-block px-2 py-0.5 rounded text-[10px] font-bold border ${getBadgeStyle(j.type)}`}>
                           {j.type}
                         </span>
                       </td>
                       <td className="py-3.5 px-4 font-mono text-[var(--text-muted)]">
-                        {j.defaultDebit ? (
-                          <span className="text-[var(--text-main)] font-semibold">
-                            {j.defaultDebit.name}
-                          </span>
-                        ) : (
-                          <span className="opacity-50">—</span>
-                        )}
+                        {j.defaultDebit ? `${j.defaultDebit.name} (${j.defaultDebit.type})` : "—"}
                       </td>
                       <td className="py-3.5 px-4 font-mono text-[var(--text-muted)]">
-                        {j.defaultCredit ? (
-                          <span className="text-[var(--text-main)] font-semibold">
-                            {j.defaultCredit.name}
-                          </span>
-                        ) : (
-                          <span className="opacity-50">—</span>
-                        )}
+                        {j.defaultCredit ? `${j.defaultCredit.name} (${j.defaultCredit.type})` : "—"}
                       </td>
                       <td className="py-3.5 px-4 text-right space-x-2" onClick={(e) => e.stopPropagation()}>
                         <button
@@ -531,8 +466,8 @@ export default function JournalsMasterPage() {
                           Edit
                         </button>
                         <button
-                          onClick={() => handleDelete(j.id)}
-                          className="px-2.5 py-1 text-[11px] font-bold rounded border border-red-500/30 text-red-500 hover:bg-red-500/10 transition-colors"
+                          onClick={(e) => handleDelete(j.id, e)}
+                          className="px-2.5 py-1 text-[11px] font-bold rounded border border-red-500/30 text-red-400 hover:bg-red-500/10 transition-colors"
                         >
                           Delete
                         </button>
@@ -550,58 +485,64 @@ export default function JournalsMasterPage() {
       {viewMode === "kanban" && (
         <div className="space-y-4">
           <div className="card-mono p-4 border-b border-[var(--border-color)] flex justify-between items-center">
-            <h2 className="text-lg font-black text-[var(--text-main)]">Journal Kanban View</h2>
+            <h2 className="text-lg font-black text-[var(--text-main)]">Journals Master</h2>
             <span className="text-xs font-semibold text-[var(--text-muted)]">Total: {journals.length}</span>
           </div>
 
           {loading ? (
-            <div className="card-mono py-16 text-center text-xs text-[var(--text-muted)]">
-              Loading kanban cards...
-            </div>
+            <div className="card-mono py-16 text-center text-xs text-[var(--text-muted)]">Loading kanban cards...</div>
           ) : journals.length === 0 ? (
-            <div className="card-mono py-16 text-center text-xs text-[var(--text-muted)]">
-              No journals found.
-            </div>
+            <div className="card-mono py-16 text-center text-xs text-[var(--text-muted)]">No journals found.</div>
           ) : (
             <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
               {journals.map((j) => (
                 <div
                   key={j.id}
                   onClick={() => handleEdit(j)}
-                  className="card-mono p-4 hover:shadow-xl transition-all cursor-pointer border border-[var(--border-color)] hover:border-[var(--text-main)] flex flex-col justify-between space-y-3"
+                  className="card-mono p-4 hover:shadow-xl cursor-pointer transition-all border hover:border-[var(--text-main)] flex flex-col justify-between space-y-4"
                 >
-                  <div className="space-y-2">
-                    <div className="flex items-center justify-between">
-                      <div className="p-2 rounded-xl bg-[var(--badge-bg)] border border-[var(--border-color)] text-[var(--text-main)]">
+                  <div className="flex items-start justify-between">
+                    <div className="flex items-center gap-2">
+                      <div className="p-2 rounded-lg bg-[var(--badge-bg)] border border-[var(--border-color)]">
                         {getJournalIcon(j.type)}
                       </div>
-                      <span
-                        className={`rounded border px-2 py-0.5 text-[10px] font-bold ${getBadgeStyle(
-                          j.type
-                        )}`}
-                      >
-                        {j.type}
-                      </span>
+                      <div>
+                        <h3 className="font-bold text-[var(--text-main)] text-sm">{j.name}</h3>
+                        <span className={`inline-block mt-1 px-1.5 py-0.5 rounded text-[10px] font-bold border ${getBadgeStyle(j.type)}`}>
+                          {j.type}
+                        </span>
+                      </div>
                     </div>
-
-                    <h3 className="font-bold text-sm text-[var(--text-main)] truncate pt-1">
-                      {j.name}
-                    </h3>
                   </div>
 
-                  <div className="border-t border-[var(--border-color)]/60 pt-2 space-y-1 text-[11px]">
-                    <div className="flex justify-between items-center">
-                      <span className="text-[var(--text-muted)]">Default Debit:</span>
-                      <span className="font-mono font-semibold text-[var(--text-main)] truncate max-w-[140px]">
-                        {j.defaultDebit?.name || "—"}
+                  <div className="space-y-1 text-xs border-t border-[var(--border-color)]/60 pt-3">
+                    <div className="flex justify-between text-[11px]">
+                      <span className="text-[var(--text-muted)]">Dr Account:</span>
+                      <span className="font-mono font-semibold text-[var(--text-main)] truncate max-w-[130px]">
+                        {j.defaultDebit ? j.defaultDebit.name : "—"}
                       </span>
                     </div>
-                    <div className="flex justify-between items-center">
-                      <span className="text-[var(--text-muted)]">Default Credit:</span>
-                      <span className="font-mono font-semibold text-[var(--text-main)] truncate max-w-[140px]">
-                        {j.defaultCredit?.name || "—"}
+                    <div className="flex justify-between text-[11px]">
+                      <span className="text-[var(--text-muted)]">Cr Account:</span>
+                      <span className="font-mono font-semibold text-[var(--text-main)] truncate max-w-[130px]">
+                        {j.defaultCredit ? j.defaultCredit.name : "—"}
                       </span>
                     </div>
+                  </div>
+
+                  <div className="flex justify-end gap-2 pt-2 border-t border-[var(--border-color)]" onClick={(e) => e.stopPropagation()}>
+                    <button
+                      onClick={() => handleEdit(j)}
+                      className="px-2.5 py-1 text-[11px] font-bold rounded border border-[var(--border-color)] hover:bg-[var(--badge-bg)]"
+                    >
+                      Edit
+                    </button>
+                    <button
+                      onClick={(e) => handleDelete(j.id, e)}
+                      className="px-2.5 py-1 text-[11px] font-bold rounded border border-red-500/30 text-red-400 hover:bg-red-500/10"
+                    >
+                      Delete
+                    </button>
                   </div>
                 </div>
               ))}

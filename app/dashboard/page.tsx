@@ -489,7 +489,7 @@ export default function Dashboard() {
                         {new Date(item.invDate).toLocaleDateString()}
                       </td>
                       <td className="py-3 px-3 font-medium text-[var(--text-main)]">
-                        {item.customerId}
+                        {item.customer?.name || item.customerId}
                       </td>
                       <td className="py-3 px-3 text-right font-semibold text-[var(--text-main)]">
                         {formatCurrency(item.total)}
@@ -518,7 +518,7 @@ export default function Dashboard() {
                         {new Date(item.date).toLocaleDateString()}
                       </td>
                       <td className="py-3 px-3 font-medium text-[var(--text-main)]">
-                        {item.customerId}
+                        {item.customer?.name || item.customerId}
                       </td>
                       <td className="py-3 px-3 text-right font-semibold text-[var(--text-main)]">
                         {formatCurrency(item.total)}
@@ -550,7 +550,7 @@ export default function Dashboard() {
                         {new Date(item.billDate).toLocaleDateString()}
                       </td>
                       <td className="py-3 px-3 font-medium text-[var(--text-main)]">
-                        {item.vendorId}
+                        {item.vendor?.name || item.vendorId}
                       </td>
                       <td className="py-3 px-3 text-right font-semibold text-[var(--text-main)]">
                         {formatCurrency(item.total)}
@@ -577,7 +577,7 @@ export default function Dashboard() {
                         {new Date(item.date).toLocaleDateString()}
                       </td>
                       <td className="py-3 px-3 font-medium text-[var(--text-main)]">
-                        Partner: {item.partnerId}
+                        {item.partner?.name || item.partnerId}
                       </td>
                       <td className="py-3 px-3 text-right font-semibold text-[var(--text-main)]">
                         {formatCurrency(item.amount)}

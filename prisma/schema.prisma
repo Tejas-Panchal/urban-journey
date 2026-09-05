@@ -49,11 +49,13 @@ enum JournalType {
   PURCHASE
   BANK
   CASH
+  GENERAL
 }
 
 enum EntryStatus {
   DRAFT
   POSTED
+  CANCELLED
 }
 
 enum DocStatus {
@@ -133,6 +135,7 @@ model Product {
 
 model Account {
   id         String          @id @default(cuid())
+  code       String?         @unique
   name       String          @unique
   type       AccountType
   subtype    AccountSubType  @default(OTHER)
@@ -140,34 +143,49 @@ model Account {
 }
 
 model Journal {
-  id              String      @id @default(cuid())
-  name            String      @unique
-  type            JournalType
-  defaultDebitId  String?
-  defaultCreditId String?
+  id               String        @id @default(cuid())
+  code             String?       @unique
+  name             String        @unique
+  type             JournalType
+  defaultDebitId   String?
+  defaultCreditId  String?
+  defaultAccountId String?
+  entries          JournalEntry[]
 }
 
 model JournalEntry {
-  id         String      @id @default(cuid())
-  journalId  String
-  date       DateTime    @default(now())
-  reference  String
-  status     EntryStatus @default(POSTED)
-  sourceType String?
-  sourceId   String?
-  lines      JournalLine[]
-  createdAt  DateTime @default(now())
+  id              String        @id @default(cuid())
+  journalId       String
+  journal         Journal       @relation(fields: [journalId], references: [id])
+  entryNumber     String?       @unique
+  date            DateTime      @default(now())
+  reference       String
+  status          EntryStatus   @default(POSTED)
+  sourceType      String?
+  sourceId        String?
+  narration       String?
+  postedAt        DateTime?
+  reversedAt      DateTime?
+  reversedEntryId String?       @unique
+  reversedEntry   JournalEntry? @relation("JournalEntryReversals", fields: [reversedEntryId], references: [id])
+  reversals       JournalEntry? @relation("JournalEntryReversals")
+  lines           JournalLine[]
+  createdAt       DateTime      @default(now())
 }
 
 model JournalLine {
-  id         String       @id @default(cuid())
-  entryId    String
-  entry      JournalEntry @relation(fields: [entryId], references: [id], onDelete: Cascade)
-  accountId  String
-  partnerId  String?
-  analyticId String?
-  debit      Float @default(0)
-  credit     Float @default(0)
+  id                String       @id @default(cuid())
+  entryId           String
+  entry             JournalEntry @relation(fields: [entryId], references: [id], onDelete: Cascade)
+  accountId         String
+  partnerId         String?
+  analyticId        String?
+  analyticAccountId String?
+  narration         String?
+  lineLabel         String?
+  matchedLineId     String?
+  debit             Float        @default(0)
+  credit            Float        @default(0)
 }
 
 model Analytic {

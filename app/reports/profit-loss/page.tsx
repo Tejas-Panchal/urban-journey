@@ -9,7 +9,7 @@ export default function ProfitLossReportPage() {
   const loadData = async () => {
     setLoading(true);
     try {
-      const res = await fetch("/api/reports/profit-loss").then((r) => r.json());
+      const res = await fetch("/api/reports/profit-loss").then((r) => r.json().catch(() => ({}))).catch(() => ({}));
       setData(res);
     } catch (err) {
       console.error(err);

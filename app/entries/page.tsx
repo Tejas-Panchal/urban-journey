@@ -9,7 +9,7 @@ export default function JournalEntriesPage() {
   const loadData = async () => {
     setLoading(true);
     try {
-      const res = await fetch("/api/entries").then((r) => r.json());
+      const res = await fetch("/api/entries").then((r) => r.json().catch(() => ({ entries: [] }))).catch(() => ({ entries: [] }));
       setEntries(res.entries || []);
     } catch (err) {
       console.error(err);
@@ -108,7 +108,7 @@ export default function JournalEntriesPage() {
                   <table className="w-full text-left text-xs">
                     <thead>
                       <tr className="border-b border-[var(--border-color)] text-[var(--text-muted)] font-semibold uppercase text-[10px]">
-                        <th className="py-2.5 px-4">Account ID</th>
+                        <th className="py-2.5 px-4">Account</th>
                         <th className="py-2.5 px-4">Partner</th>
                         <th className="py-2.5 px-4 text-right w-32">Debit (₹)</th>
                         <th className="py-2.5 px-4 text-right w-32">Credit (₹)</th>
@@ -117,11 +117,11 @@ export default function JournalEntriesPage() {
                     <tbody className="divide-y divide-[var(--border-color)]/50">
                       {entry.lines?.map((line: any, idx: number) => (
                         <tr key={line.id || idx} className="hover:bg-[var(--card-hover)]">
-                          <td className="py-2.5 px-4 font-mono text-[var(--text-main)]">
-                            {line.accountId}
+                          <td className="py-2.5 px-4 font-sans font-semibold text-[var(--text-main)]">
+                            {line.account?.name ? `${line.account.code ? line.account.code + " - " : ""}${line.account.name}` : line.accountId}
                           </td>
-                          <td className="py-2.5 px-4 text-[var(--text-muted)]">
-                            {line.partnerId || "-"}
+                          <td className="py-2.5 px-4 text-[var(--text-muted)] font-medium">
+                            {line.partner?.name || line.partnerId || "-"}
                           </td>
                           <td className="py-2.5 px-4 text-right font-semibold text-[var(--text-main)]">
                             {line.debit > 0 ? formatCurrency(line.debit) : "-"}

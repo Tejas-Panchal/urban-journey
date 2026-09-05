@@ -7,7 +7,7 @@ import { lineTotal, nextBillNo, postJournal, getAccountIdByName } from "@/lib/ac
 export async function GET() {
   const { error } = await requireSession(["ADMIN", "ACCOUNTANT"]);
   if (error) return error!;
-  const bills = await db.vendorBill.findMany({ include: { lines: true, payments: true }, orderBy: { createdAt: "desc" } });
+  const bills = await db.vendorBill.findMany({ include: { vendor: true, lines: { include: { product: true } }, payments: true }, orderBy: { createdAt: "desc" } });
   return NextResponse.json({ bills });
 }
 

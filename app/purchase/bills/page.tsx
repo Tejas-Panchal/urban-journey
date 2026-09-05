@@ -255,7 +255,7 @@ export default function VendorBillsPage() {
                       {new Date(b.billDate).toLocaleDateString()}
                     </td>
                     <td className="py-3.5 px-4 font-medium text-[var(--text-main)]">
-                      {b.vendorId}
+                      {b.vendor?.name || contacts.find((c) => c.id === b.vendorId)?.name || b.vendorId}
                     </td>
                     <td className="py-3.5 px-4 text-right font-bold text-[var(--text-main)]">
                       {formatCurrency(b.total || 0)}

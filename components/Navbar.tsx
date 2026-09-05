@@ -175,9 +175,20 @@ export function Navbar() {
               </Link>
 
               {navDropdowns.map((drop) => {
+                const isExactItemActive = drop.items.some(
+                  (item) => pathname === item.href || (item.href !== "/" && pathname.startsWith(item.href))
+                );
+
+                const isOtherDropdownItemActive = navDropdowns.some(
+                  (otherDrop) =>
+                    otherDrop.label !== drop.label &&
+                    otherDrop.items.some(
+                      (item) => pathname === item.href || (item.href !== "/" && pathname.startsWith(item.href))
+                    )
+                );
+
                 const isActive =
-                  pathname.startsWith(drop.prefix) ||
-                  drop.items.some((i) => i.href === pathname);
+                  isExactItemActive || (!isOtherDropdownItemActive && pathname.startsWith(drop.prefix));
                 const isOpen = activeDropdown === drop.label;
                 return (
                   <div

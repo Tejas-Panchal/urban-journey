@@ -9,7 +9,7 @@ export default function BudgetReportPage() {
   const loadData = async () => {
     setLoading(true);
     try {
-      const res = await fetch("/api/reports/budget").then((r) => r.json());
+      const res = await fetch("/api/reports/budget").then((r) => r.json().catch(() => ({ budgets: [] }))).catch(() => ({ budgets: [] }));
       setBudgets(res.budgets || []);
     } catch (err) {
       console.error(err);

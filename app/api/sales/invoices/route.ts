@@ -9,7 +9,7 @@ export async function GET() {
   if (error) return error!;
   return NextResponse.json({
     invoices: await db.customerInvoice.findMany({
-      include: { customer: true, lines: true, payments: true },
+      include: { customer: true, lines: { include: { product: true } }, payments: true },
       orderBy: { createdAt: "desc" },
     }),
   });

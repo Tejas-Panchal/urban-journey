@@ -7,7 +7,7 @@ import { lineTotal, nextPoNo } from "@/lib/accounting";
 export async function GET() {
   const { error } = await requireSession(["ADMIN", "ACCOUNTANT"]);
   if (error) return error!;
-  const orders = await db.purchaseOrder.findMany({ include: { lines: true }, orderBy: { createdAt: "desc" } });
+  const orders = await db.purchaseOrder.findMany({ include: { vendor: true, lines: { include: { product: true } } }, orderBy: { createdAt: "desc" } });
   return NextResponse.json({ orders });
 }
 

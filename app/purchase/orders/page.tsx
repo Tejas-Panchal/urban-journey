@@ -30,9 +30,9 @@ export default function PurchaseOrdersPage() {
     setLoading(true);
     try {
       const [poRes, contactRes, prodRes] = await Promise.all([
-        fetch("/api/purchase/orders").then((r) => r.json()),
-        fetch("/api/contacts").then((r) => r.json()).catch(() => ({ contacts: [] })),
-        fetch("/api/products").then((r) => r.json()).catch(() => ({ products: [] })),
+        fetch("/api/purchase/orders").then((r) => r.json().catch(() => ({ orders: [] }))).catch(() => ({ orders: [] })),
+        fetch("/api/contacts").then((r) => r.json().catch(() => ({ contacts: [] }))).catch(() => ({ contacts: [] })),
+        fetch("/api/products").then((r) => r.json().catch(() => ({ products: [] }))).catch(() => ({ products: [] })),
       ]);
       setOrders(poRes.orders || []);
       setContacts(contactRes.contacts || []);
@@ -198,7 +198,7 @@ export default function PurchaseOrdersPage() {
                       {new Date(o.date).toLocaleDateString()}
                     </td>
                     <td className="py-3.5 px-4 font-medium text-[var(--text-main)]">
-                      {o.vendorId}
+                      {o.vendor?.name || contacts.find((c) => c.id === o.vendorId)?.name || o.vendorId}
                     </td>
                     <td className="py-3.5 px-4 text-right text-[var(--text-muted)]">
                       {formatCurrency(o.subtotal || 0)}
