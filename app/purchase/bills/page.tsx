@@ -46,10 +46,12 @@ export default function VendorBillsPage() {
     new Date().toISOString().split("T")[0],
   );
 
+  const [session, setSession] = useState<any>(null);
+
   const loadData = async () => {
     setLoading(true);
     try {
-      const [billRes, contactRes, prodRes] = await Promise.all([
+      const [billRes, contactRes, prodRes, authRes] = await Promise.all([
         fetch("/api/purchase/bills")
           .then((r) => r.json())
           .catch(() => ({ bills: [], analytics: [] })),
@@ -59,11 +61,13 @@ export default function VendorBillsPage() {
         fetch("/api/products")
           .then((r) => r.json())
           .catch(() => ({ products: [] })),
+        fetch("/api/auth/me").then((r) => (r.ok ? r.json() : null)).catch(() => null),
       ]);
       setBills(billRes.bills || []);
       setAnalytics(billRes.analytics || []);
       setContacts(contactRes.contacts || []);
       setProducts(prodRes.products || []);
+      setSession(authRes);
     } catch (err) {
       console.error(err);
     } finally {
@@ -218,12 +222,14 @@ export default function VendorBillsPage() {
             Vendor Bills (AP)
           </h1>
         </div>
-        <button
-          onClick={() => setShowModal(true)}
-          className="btn-primary text-xs flex items-center gap-1.5 py-2 px-4"
-        >
-          <span>+</span> Create Vendor Bill
-        </button>
+        {session?.user?.role !== "CONTACT" && (
+          <button
+            onClick={() => setShowModal(true)}
+            className="btn-primary text-xs flex items-center gap-1.5 py-2 px-4"
+          >
+            <span>+</span> Create Vendor Bill
+          </button>
+        )}
       </div>
 
       {/* Filter Bar */}

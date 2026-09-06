@@ -3,7 +3,7 @@ import { db } from "@/lib/db";
 import { requireSession } from "@/lib/api";
 
 export async function GET(req: Request) {
-  const { error } = await requireSession(["ADMIN", "ACCOUNTANT", "CONTACT"]);
+  const { error } = await requireSession(["ADMIN", "ACCOUNTANT"]);
   if (error) return error!;
 
   const { searchParams } = new URL(req.url);

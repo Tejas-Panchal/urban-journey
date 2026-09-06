@@ -35,36 +35,45 @@ export default function Dashboard() {
   const loadData = async () => {
     setLoading(true);
     try {
-      const [poRes, billsRes, soRes, invRes, budgetsRes, payRes, plRes, contactsRes, prodRes] =
-        await Promise.all([
-          fetch("/api/purchase/orders")
-            .then((r) => r.json())
-            .catch(() => ({ orders: [] })),
-          fetch("/api/purchase/bills")
-            .then((r) => r.json())
-            .catch(() => ({ bills: [] })),
-          fetch("/api/sales/orders")
-            .then((r) => r.json())
-            .catch(() => ({ orders: [] })),
-          fetch("/api/sales/invoices")
-            .then((r) => r.json())
-            .catch(() => ({ invoices: [] })),
-          fetch("/api/reports/budget")
-            .then((r) => r.json())
-            .catch(() => ({ budgets: [] })),
-          fetch("/api/payments")
-            .then((r) => r.json())
-            .catch(() => ({ payments: [] })),
-          fetch("/api/reports/profit-loss")
-            .then((r) => r.json())
-            .catch(() => null),
-          fetch("/api/contacts")
-            .then((r) => r.json())
-            .catch(() => ({ contacts: [] })),
-          fetch("/api/products")
-            .then((r) => r.json())
-            .catch(() => ({ products: [] })),
-        ]);
+      const [
+        poRes,
+        billsRes,
+        soRes,
+        invRes,
+        budgetsRes,
+        payRes,
+        plRes,
+        contactsRes,
+        prodRes,
+      ] = await Promise.all([
+        fetch("/api/purchase/orders")
+          .then((r) => r.json())
+          .catch(() => ({ orders: [] })),
+        fetch("/api/purchase/bills")
+          .then((r) => r.json())
+          .catch(() => ({ bills: [] })),
+        fetch("/api/sales/orders")
+          .then((r) => r.json())
+          .catch(() => ({ orders: [] })),
+        fetch("/api/sales/invoices")
+          .then((r) => r.json())
+          .catch(() => ({ invoices: [] })),
+        fetch("/api/reports/budget")
+          .then((r) => r.json())
+          .catch(() => ({ budgets: [] })),
+        fetch("/api/payments")
+          .then((r) => r.json())
+          .catch(() => ({ payments: [] })),
+        fetch("/api/reports/profit-loss")
+          .then((r) => r.json())
+          .catch(() => null),
+        fetch("/api/contacts")
+          .then((r) => r.json())
+          .catch(() => ({ contacts: [] })),
+        fetch("/api/products")
+          .then((r) => r.json())
+          .catch(() => ({ products: [] })),
+      ]);
 
       setData({
         po: poRes.orders || [],
@@ -89,8 +98,12 @@ export default function Dashboard() {
   }, []);
 
   // Compute key totals connected directly with invoices and bills
-  const validInvoices = data.inv.filter((i: any) => i.status !== "DRAFT" && i.status !== "CANCELLED");
-  const validBills = data.bills.filter((b: any) => b.status !== "DRAFT" && b.status !== "CANCELLED");
+  const validInvoices = data.inv.filter(
+    (i: any) => i.status !== "DRAFT" && i.status !== "CANCELLED",
+  );
+  const validBills = data.bills.filter(
+    (b: any) => b.status !== "DRAFT" && b.status !== "CANCELLED",
+  );
 
   const totalRevenue = validInvoices.reduce(
     (sum: number, i: any) => sum + (i.total || i.subtotal || 0),
@@ -109,6 +122,29 @@ export default function Dashboard() {
     (sum: number, b: any) => sum + (b.due || 0),
     0,
   );
+
+  const totalBudgetCommitted = data.budgets.reduce(
+    (sum: number, b: any) =>
+      sum +
+      (b.lines?.reduce(
+        (s: number, l: any) => s + (l.committed || 0),
+        0,
+      ) || 0),
+    0,
+  );
+  const totalBudgetAchieved = data.budgets.reduce(
+    (sum: number, b: any) =>
+      sum +
+      (b.lines?.reduce(
+        (s: number, l: any) => s + (l.achievedCached || 0),
+        0,
+      ) || 0),
+    0,
+  );
+  const totalBudgetUtilizedPct =
+    totalBudgetCommitted > 0
+      ? Math.round((totalBudgetAchieved / totalBudgetCommitted) * 100)
+      : 0;
 
   const formatCurrency = (val: number) =>
     new Intl.NumberFormat("en-IN", {
@@ -279,10 +315,11 @@ export default function Dashboard() {
           </div>
           <div className="mt-4">
             <div className="text-2xl font-extrabold tracking-tight text-[var(--text-main)]">
-              {data.budgets.length} Budgets
+              {formatCurrency(totalBudgetCommitted)}
             </div>
-            <div className="mt-1 text-xs text-[var(--text-muted)]">
-              Active financial allocations
+            <div className="mt-1 text-xs text-[var(--text-muted)] flex items-center justify-between">
+              <span>{formatCurrency(totalBudgetAchieved)} spent ({totalBudgetUtilizedPct}%)</span>
+              <span className="font-mono text-[11px]">{data.budgets.length} budget{data.budgets.length === 1 ? "" : "s"}</span>
             </div>
           </div>
         </div>
@@ -345,7 +382,7 @@ export default function Dashboard() {
 
             <div>
               <div className="flex justify-between text-xs font-semibold mb-2">
-                <span>Net Cash Received</span>
+                <span>Net Income Received</span>
                 <span>{formatCurrency(totalRevenue - totalReceivables)}</span>
               </div>
               <div className="h-4 w-full rounded-full bg-[var(--border-color)] overflow-hidden">
@@ -363,9 +400,14 @@ export default function Dashboard() {
         {/* Budget Performance Gauge */}
         <div className="card-mono p-6">
           <div className="flex items-center justify-between border-b border-[var(--border-color)] pb-4">
-            <h2 className="text-base font-bold text-[var(--text-main)]">
-              Budget Performance
-            </h2>
+            <div>
+              <h2 className="text-base font-bold text-[var(--text-main)]">
+                Budget Performance
+              </h2>
+              <p className="text-xs text-[var(--text-muted)]">
+                Spent vs allocated target
+              </p>
+            </div>
             <Link
               href="/reports/budget"
               className="text-xs font-medium underline text-[var(--text-main)]"
@@ -385,18 +427,25 @@ export default function Dashboard() {
                   b.lines?.reduce(
                     (s: number, l: any) => s + (l.committed || 0),
                     0,
-                  ) || 1;
+                  ) || 0;
+                const actual =
+                  b.lines?.reduce(
+                    (s: number, l: any) => s + (l.achievedCached || 0),
+                    0,
+                  ) || 0;
                 const percentage =
-                  Math.min(100, Math.round((b.actual / limit) * 100)) || 0;
+                  limit > 0 ? Math.min(100, Math.round((actual / limit) * 100)) : 0;
                 return (
                   <div
                     key={b.id || idx}
                     className="border-b border-[var(--border-color)]/50 pb-3 last:border-0"
                   >
-                    <div className="flex justify-between text-xs font-semibold">
-                      <span className="text-[var(--text-main)]">{b.name}</span>
-                      <span className="text-[var(--text-muted)]">
-                        {percentage}%
+                    <div className="flex justify-between items-center text-xs font-semibold">
+                      <span className="text-[var(--text-main)] truncate max-w-[130px]" title={b.name}>
+                        {b.name}
+                      </span>
+                      <span className="text-[var(--text-muted)] font-mono text-[11px]">
+                        {formatCurrency(actual)} / {formatCurrency(limit)} ({percentage}%)
                       </span>
                     </div>
                     <div className="mt-1.5 h-2 w-full rounded-full bg-[var(--border-color)] overflow-hidden">
@@ -493,7 +542,9 @@ export default function Dashboard() {
                   data.inv.slice(0, 8).map((item: any) => (
                     <tr
                       key={item.id}
-                      onClick={() => setSelectedDoc({ type: "inv", data: item })}
+                      onClick={() =>
+                        setSelectedDoc({ type: "inv", data: item })
+                      }
                       className="hover:bg-[var(--card-hover)] transition-colors cursor-pointer"
                     >
                       <td className="py-3 px-3 font-mono font-bold text-[var(--text-main)]">
@@ -503,7 +554,11 @@ export default function Dashboard() {
                         {new Date(item.invDate).toLocaleDateString()}
                       </td>
                       <td className="py-3 px-3 font-medium text-[var(--text-main)]">
-                        {item.customer?.name || (data.contacts || []).find((c: any) => c.id === item.customerId)?.name || item.customerId}
+                        {item.customer?.name ||
+                          (data.contacts || []).find(
+                            (c: any) => c.id === item.customerId,
+                          )?.name ||
+                          item.customerId}
                       </td>
                       <td className="py-3 px-3 text-right font-semibold text-[var(--text-main)]">
                         {formatCurrency(item.total || item.subtotal || 0)}
@@ -531,7 +586,11 @@ export default function Dashboard() {
                         {new Date(item.date).toLocaleDateString()}
                       </td>
                       <td className="py-3 px-3 font-medium text-[var(--text-main)]">
-                        {item.customer?.name || (data.contacts || []).find((c: any) => c.id === item.customerId)?.name || item.customerId}
+                        {item.customer?.name ||
+                          (data.contacts || []).find(
+                            (c: any) => c.id === item.customerId,
+                          )?.name ||
+                          item.customerId}
                       </td>
                       <td className="py-3 px-3 text-right font-semibold text-[var(--text-main)]">
                         {formatCurrency(item.total || item.subtotal || 0)}
@@ -549,7 +608,9 @@ export default function Dashboard() {
                   data.bills.slice(0, 8).map((item: any) => (
                     <tr
                       key={item.id}
-                      onClick={() => setSelectedDoc({ type: "bills", data: item })}
+                      onClick={() =>
+                        setSelectedDoc({ type: "bills", data: item })
+                      }
                       className="hover:bg-[var(--card-hover)] transition-colors cursor-pointer"
                     >
                       <td className="py-3 px-3 font-mono font-bold text-[var(--text-main)]">
@@ -559,7 +620,11 @@ export default function Dashboard() {
                         {new Date(item.billDate).toLocaleDateString()}
                       </td>
                       <td className="py-3 px-3 font-medium text-[var(--text-main)]">
-                        {item.vendor?.name || (data.contacts || []).find((c: any) => c.id === item.vendorId)?.name || item.vendorId}
+                        {item.vendor?.name ||
+                          (data.contacts || []).find(
+                            (c: any) => c.id === item.vendorId,
+                          )?.name ||
+                          item.vendorId}
                       </td>
                       <td className="py-3 px-3 text-right font-semibold text-[var(--text-main)]">
                         {formatCurrency(item.total || item.subtotal || 0)}
@@ -577,7 +642,9 @@ export default function Dashboard() {
                   data.payments.slice(0, 8).map((item: any) => (
                     <tr
                       key={item.id}
-                      onClick={() => setSelectedDoc({ type: "payments", data: item })}
+                      onClick={() =>
+                        setSelectedDoc({ type: "payments", data: item })
+                      }
                       className="hover:bg-[var(--card-hover)] transition-colors cursor-pointer"
                     >
                       <td className="py-3 px-3 font-mono font-bold text-[var(--text-main)]">
@@ -587,7 +654,11 @@ export default function Dashboard() {
                         {new Date(item.date).toLocaleDateString()}
                       </td>
                       <td className="py-3 px-3 font-medium text-[var(--text-main)]">
-                        {item.partner?.name || (data.contacts || []).find((c: any) => c.id === item.partnerId)?.name || item.partnerId}
+                        {item.partner?.name ||
+                          (data.contacts || []).find(
+                            (c: any) => c.id === item.partnerId,
+                          )?.name ||
+                          item.partnerId}
                       </td>
                       <td className="py-3 px-3 text-right font-semibold text-[var(--text-main)]">
                         {formatCurrency(item.amount)}
@@ -614,10 +685,10 @@ export default function Dashboard() {
           selectedDoc?.type === "inv"
             ? `Customer Invoice ${selectedDoc.data?.no || ""}`
             : selectedDoc?.type === "so"
-            ? `Sales Order ${selectedDoc.data?.no || ""}`
-            : selectedDoc?.type === "bills"
-            ? `Vendor Bill ${selectedDoc.data?.no || ""}`
-            : `Payment Receipt ${selectedDoc?.data?.id ? "PAY-" + selectedDoc.data.id.slice(-6) : ""}`
+              ? `Sales Order ${selectedDoc.data?.no || ""}`
+              : selectedDoc?.type === "bills"
+                ? `Vendor Bill ${selectedDoc.data?.no || ""}`
+                : `Payment Receipt ${selectedDoc?.data?.id ? "PAY-" + selectedDoc.data.id.slice(-6) : ""}`
         }
         maxWidth="max-w-3xl"
       >
@@ -625,80 +696,149 @@ export default function Dashboard() {
           <div className="space-y-4 text-xs">
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 p-4 rounded-lg bg-[var(--badge-bg)] border border-[var(--border-color)]">
               <div>
-                <span className="text-[var(--text-muted)] block text-[10px] uppercase font-bold">Doc Ref</span>
+                <span className="text-[var(--text-muted)] block text-[10px] uppercase font-bold">
+                  Doc Ref
+                </span>
                 <span className="font-mono font-bold text-[var(--text-main)]">
-                  {selectedDoc.type === "payments" ? `PAY-${selectedDoc.data.id.slice(-6)}` : selectedDoc.data.no}
+                  {selectedDoc.type === "payments"
+                    ? `PAY-${selectedDoc.data.id.slice(-6)}`
+                    : selectedDoc.data.no}
                 </span>
               </div>
               <div>
                 <span className="text-[var(--text-muted)] block text-[10px] uppercase font-bold">
-                  {selectedDoc.type === "bills" || (selectedDoc.type === "payments" && selectedDoc.data.billId) ? "Vendor" : "Customer"}
+                  {selectedDoc.type === "bills" ||
+                  (selectedDoc.type === "payments" && selectedDoc.data.billId)
+                    ? "Vendor"
+                    : "Customer"}
                 </span>
                 <span className="font-bold text-[var(--text-main)]">
                   {selectedDoc.type === "payments"
-                    ? selectedDoc.data.partner?.name || (data.contacts || []).find((c: any) => c.id === selectedDoc.data.partnerId)?.name || selectedDoc.data.partnerId
+                    ? selectedDoc.data.partner?.name ||
+                      (data.contacts || []).find(
+                        (c: any) => c.id === selectedDoc.data.partnerId,
+                      )?.name ||
+                      selectedDoc.data.partnerId
                     : selectedDoc.type === "bills"
-                    ? selectedDoc.data.vendor?.name || (data.contacts || []).find((c: any) => c.id === selectedDoc.data.vendorId)?.name || selectedDoc.data.vendorId
-                    : selectedDoc.data.customer?.name || (data.contacts || []).find((c: any) => c.id === selectedDoc.data.customerId)?.name || selectedDoc.data.customerId}
+                      ? selectedDoc.data.vendor?.name ||
+                        (data.contacts || []).find(
+                          (c: any) => c.id === selectedDoc.data.vendorId,
+                        )?.name ||
+                        selectedDoc.data.vendorId
+                      : selectedDoc.data.customer?.name ||
+                        (data.contacts || []).find(
+                          (c: any) => c.id === selectedDoc.data.customerId,
+                        )?.name ||
+                        selectedDoc.data.customerId}
                 </span>
               </div>
               <div>
-                <span className="text-[var(--text-muted)] block text-[10px] uppercase font-bold">Date</span>
+                <span className="text-[var(--text-muted)] block text-[10px] uppercase font-bold">
+                  Date
+                </span>
                 <span className="font-mono text-[var(--text-main)]">
-                  {new Date(selectedDoc.data.invDate || selectedDoc.data.billDate || selectedDoc.data.date).toLocaleDateString()}
+                  {new Date(
+                    selectedDoc.data.invDate ||
+                      selectedDoc.data.billDate ||
+                      selectedDoc.data.date,
+                  ).toLocaleDateString()}
                 </span>
               </div>
               <div>
-                <span className="text-[var(--text-muted)] block text-[10px] uppercase font-bold">Status</span>
-                <span>{renderStatusBadge(selectedDoc.data.status || "PAID")}</span>
+                <span className="text-[var(--text-muted)] block text-[10px] uppercase font-bold">
+                  Status
+                </span>
+                <span>
+                  {renderStatusBadge(selectedDoc.data.status || "PAID")}
+                </span>
               </div>
             </div>
 
-            {selectedDoc.type === "so" && (() => {
-              const linkedInv = (data.invoices || []).find((inv: any) => inv.soId === selectedDoc.data.id);
-              return linkedInv ? (
-                <div className="p-3 rounded-lg bg-sky-500/10 border border-sky-500/30 flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <span className="text-sky-400 font-bold">Linked Customer Invoice:</span>
-                    <span className="font-mono font-bold text-[var(--text-main)] text-xs">{linkedInv.no}</span>
-                    <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-sky-500/20 text-sky-300 uppercase">
-                      {linkedInv.status}
-                    </span>
+            {selectedDoc.type === "so" &&
+              (() => {
+                const linkedInv = (data.invoices || []).find(
+                  (inv: any) => inv.soId === selectedDoc.data.id,
+                );
+                return linkedInv ? (
+                  <div className="p-3 rounded-lg bg-sky-500/10 border border-sky-500/30 flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <span className="text-sky-400 font-bold">
+                        Linked Customer Invoice:
+                      </span>
+                      <span className="font-mono font-bold text-[var(--text-main)] text-xs">
+                        {linkedInv.no}
+                      </span>
+                      <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-sky-500/20 text-sky-300 uppercase">
+                        {linkedInv.status}
+                      </span>
+                    </div>
+                    <a
+                      href="/sales/invoices"
+                      className="text-xs font-bold text-sky-400 hover:underline"
+                    >
+                      View Invoices →
+                    </a>
                   </div>
-                  <a href="/sales/invoices" className="text-xs font-bold text-sky-400 hover:underline">View Invoices →</a>
-                </div>
-              ) : null;
-            })()}
+                ) : null;
+              })()}
 
-            {selectedDoc.type === "bills" && selectedDoc.data.poId && (() => {
-              const linkedPo = (data.po || []).find((p: any) => p.id === selectedDoc.data.poId);
-              return linkedPo ? (
-                <div className="p-3 rounded-lg bg-amber-500/10 border border-amber-500/30 flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <span className="text-amber-400 font-bold">Created from Purchase Order:</span>
-                    <span className="font-mono font-bold text-[var(--text-main)] text-xs">{linkedPo.no}</span>
+            {selectedDoc.type === "bills" &&
+              selectedDoc.data.poId &&
+              (() => {
+                const linkedPo = (data.po || []).find(
+                  (p: any) => p.id === selectedDoc.data.poId,
+                );
+                return linkedPo ? (
+                  <div className="p-3 rounded-lg bg-amber-500/10 border border-amber-500/30 flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <span className="text-amber-400 font-bold">
+                        Created from Purchase Order:
+                      </span>
+                      <span className="font-mono font-bold text-[var(--text-main)] text-xs">
+                        {linkedPo.no}
+                      </span>
+                    </div>
+                    <a
+                      href="/purchase/orders"
+                      className="text-xs font-bold text-amber-400 hover:underline"
+                    >
+                      View PO →
+                    </a>
                   </div>
-                  <a href="/purchase/orders" className="text-xs font-bold text-amber-400 hover:underline">View PO →</a>
-                </div>
-              ) : null;
-            })()}
+                ) : null;
+              })()}
 
-            {selectedDoc.type === "inv" && selectedDoc.data.soId && (() => {
-              const linkedSo = (data.so || []).find((s: any) => s.id === selectedDoc.data.soId);
-              return linkedSo ? (
-                <div className="p-3 rounded-lg bg-sky-500/10 border border-sky-500/30 flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <span className="text-sky-400 font-bold">Created from Sales Order:</span>
-                    <span className="font-mono font-bold text-[var(--text-main)] text-xs">{linkedSo.no}</span>
+            {selectedDoc.type === "inv" &&
+              selectedDoc.data.soId &&
+              (() => {
+                const linkedSo = (data.so || []).find(
+                  (s: any) => s.id === selectedDoc.data.soId,
+                );
+                return linkedSo ? (
+                  <div className="p-3 rounded-lg bg-sky-500/10 border border-sky-500/30 flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <span className="text-sky-400 font-bold">
+                        Created from Sales Order:
+                      </span>
+                      <span className="font-mono font-bold text-[var(--text-main)] text-xs">
+                        {linkedSo.no}
+                      </span>
+                    </div>
+                    <a
+                      href="/sales/orders"
+                      className="text-xs font-bold text-sky-400 hover:underline"
+                    >
+                      View SO →
+                    </a>
                   </div>
-                  <a href="/sales/orders" className="text-xs font-bold text-sky-400 hover:underline">View SO →</a>
-                </div>
-              ) : null;
-            })()}
+                ) : null;
+              })()}
 
             {selectedDoc.type !== "payments" && (
               <div className="space-y-2">
-                <h4 className="font-bold text-xs text-[var(--text-main)]">Line Items</h4>
+                <h4 className="font-bold text-xs text-[var(--text-main)]">
+                  Line Items
+                </h4>
                 <div className="overflow-hidden rounded-lg border border-[var(--border-color)]">
                   <table className="w-full text-left text-xs">
                     <thead>
@@ -710,16 +850,26 @@ export default function Dashboard() {
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-[var(--border-color)]/60 font-mono">
-                      {(selectedDoc.data.lines || []).map((l: any, idx: number) => (
-                        <tr key={l.id || idx}>
-                          <td className="p-2 font-sans font-semibold">
-                            {l.product?.name || (data.products || []).find((p: any) => p.id === l.productId)?.name || l.productId}
-                          </td>
-                          <td className="p-2 text-right">{l.qty}</td>
-                          <td className="p-2 text-right">{formatCurrency(l.unitPrice)}</td>
-                          <td className="p-2 text-right font-bold">{formatCurrency(l.total)}</td>
-                        </tr>
-                      ))}
+                      {(selectedDoc.data.lines || []).map(
+                        (l: any, idx: number) => (
+                          <tr key={l.id || idx}>
+                            <td className="p-2 font-sans font-semibold">
+                              {l.product?.name ||
+                                (data.products || []).find(
+                                  (p: any) => p.id === l.productId,
+                                )?.name ||
+                                l.productId}
+                            </td>
+                            <td className="p-2 text-right">{l.qty}</td>
+                            <td className="p-2 text-right">
+                              {formatCurrency(l.unitPrice)}
+                            </td>
+                            <td className="p-2 text-right font-bold">
+                              {formatCurrency(l.total)}
+                            </td>
+                          </tr>
+                        ),
+                      )}
                     </tbody>
                   </table>
                 </div>
@@ -729,11 +879,17 @@ export default function Dashboard() {
             {selectedDoc.type === "payments" && (
               <div className="p-4 rounded-lg bg-[var(--card-bg)] border border-[var(--border-color)] space-y-2 font-mono">
                 <div className="flex justify-between">
-                  <span className="text-[var(--text-muted)]">Payment Amount:</span>
-                  <span className="font-bold text-emerald-400 text-sm">{formatCurrency(selectedDoc.data.amount)}</span>
+                  <span className="text-[var(--text-muted)]">
+                    Payment Amount:
+                  </span>
+                  <span className="font-bold text-emerald-400 text-sm">
+                    {formatCurrency(selectedDoc.data.amount)}
+                  </span>
                 </div>
                 <div className="flex justify-between text-xs">
-                  <span className="text-[var(--text-muted)]">Payment Method:</span>
+                  <span className="text-[var(--text-muted)]">
+                    Payment Method:
+                  </span>
                   <span className="font-bold">{selectedDoc.data.via}</span>
                 </div>
                 {selectedDoc.data.note && (
@@ -749,7 +905,12 @@ export default function Dashboard() {
               <div className="text-[11px] font-mono">
                 <span className="text-[var(--text-muted)]">Total Amount: </span>
                 <span className="font-bold text-emerald-400 text-sm">
-                  {formatCurrency(selectedDoc.data.total || selectedDoc.data.subtotal || selectedDoc.data.amount || 0)}
+                  {formatCurrency(
+                    selectedDoc.data.total ||
+                      selectedDoc.data.subtotal ||
+                      selectedDoc.data.amount ||
+                      0,
+                  )}
                 </span>
               </div>
               <div className="flex gap-2">

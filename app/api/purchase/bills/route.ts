@@ -5,10 +5,19 @@ import { vendorBillSchema } from "@/lib/validations";
 import { lineTotal, nextBillNo, postJournal, getAccountIdByName } from "@/lib/accounting";
 
 export async function GET() {
-  const { error } = await requireSession(["ADMIN", "ACCOUNTANT"]);
-  if (error) return error!;
-  const bills = await db.vendorBill.findMany({ include: { vendor: true, lines: true, payments: true }, orderBy: { createdAt: "desc" } });
-  const analytics = await db.analytic.findMany({ orderBy: { name: "asc" } });
+  const { error, session } = await requireSession(["ADMIN", "ACCOUNTANT", "CONTACT"]);
+  if (error || !session) return error!;
+
+  const whereVendor = session.role === "CONTACT" && session.contactId
+    ? { vendorId: session.contactId }
+    : {};
+
+  const bills = await db.vendorBill.findMany({
+    where: whereVendor,
+    include: { vendor: true, lines: true, payments: true },
+    orderBy: { createdAt: "desc" },
+  });
+  const analytics = session.role === "CONTACT" ? [] : await db.analytic.findMany({ orderBy: { name: "asc" } });
   return NextResponse.json({ bills, analytics });
 }
 

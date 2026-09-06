@@ -26,7 +26,7 @@ export default function LoginPage() {
         setErr(j.error ?? "Invalid Login ID or Password");
         return;
       }
-      window.location.href = "/dashboard";
+      window.location.href = j.user?.role === "CONTACT" ? "/sales/invoices" : "/dashboard";
     } catch {
       setErr("Login request failed. Please check network.");
     } finally {

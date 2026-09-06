@@ -6,6 +6,7 @@ import Modal from "@/components/Modal";
 
 interface LineItem {
   productId: string;
+  analyticId?: string;
   qty: number;
   unitPrice: number;
   tax: number;
@@ -15,6 +16,7 @@ export default function CustomerInvoicesPage() {
   const [invoices, setInvoices] = useState<any[]>([]);
   const [contacts, setContacts] = useState<any[]>([]);
   const [products, setProducts] = useState<any[]>([]);
+  const [analytics, setAnalytics] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [q, setQ] = useState("");
   const [statusFilter, setStatusFilter] = useState("ALL");
@@ -31,7 +33,7 @@ export default function CustomerInvoicesPage() {
     new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split("T")[0]
   );
   const [lines, setLines] = useState<LineItem[]>([
-    { productId: "", qty: 1, unitPrice: 0, tax: 0 },
+    { productId: "", analyticId: "", qty: 1, unitPrice: 0, tax: 0 },
   ]);
   const [errorMsg, setErrorMsg] = useState("");
   const [saving, setSaving] = useState(false);
@@ -42,17 +44,22 @@ export default function CustomerInvoicesPage() {
   const [payDate, setPayDate] = useState(new Date().toISOString().split("T")[0]);
   const [payNote, setPayNote] = useState("");
 
+  const [session, setSession] = useState<any>(null);
+
   const loadData = async () => {
     setLoading(true);
     try {
-      const [invRes, contactRes, prodRes] = await Promise.all([
-        fetch("/api/sales/invoices").then((r) => r.json()).catch(() => ({ invoices: [] })),
+      const [invRes, contactRes, prodRes, authRes] = await Promise.all([
+        fetch("/api/sales/invoices").then((r) => r.json()).catch(() => ({ invoices: [], analytics: [] })),
         fetch("/api/contacts").then((r) => r.json()).catch(() => ({ contacts: [] })),
         fetch("/api/products").then((r) => r.json()).catch(() => ({ products: [] })),
+        fetch("/api/auth/me").then((r) => (r.ok ? r.json() : null)).catch(() => null),
       ]);
       setInvoices(invRes.invoices || []);
+      setAnalytics(invRes.analytics || []);
       setContacts(contactRes.contacts || []);
       setProducts(prodRes.products || []);
+      setSession(authRes);
     } catch (err) {
       console.error(err);
     } finally {
@@ -65,7 +72,7 @@ export default function CustomerInvoicesPage() {
   }, []);
 
   const handleAddLine = () => {
-    setLines([...lines, { productId: "", qty: 1, unitPrice: 0, tax: 0 }]);
+    setLines([...lines, { productId: "", analyticId: analytics[0]?.id || "", qty: 1, unitPrice: 0, tax: 0 }]);
   };
 
   const handleRemoveLine = (idx: number) => {
@@ -82,6 +89,8 @@ export default function CustomerInvoicesPage() {
       if (selectedProd) {
         next[idx].unitPrice = selectedProd.salesPrice || 0;
       }
+    } else if (field === "analyticId") {
+      next[idx].analyticId = val;
     } else {
       (next[idx] as any)[field] = Number(val);
     }
@@ -204,14 +213,16 @@ export default function CustomerInvoicesPage() {
             Customer Invoices (AR)
           </h1>
         </div>
-        <div className="flex items-center gap-3">
-          <button
-            onClick={() => setShowModal(true)}
-            className="btn-primary text-xs flex items-center gap-1.5 py-2 px-4"
-          >
-            <span>+</span> Create Customer Invoice
-          </button>
-        </div>
+        {session?.user?.role !== "CONTACT" && (
+          <div className="flex items-center gap-3">
+            <button
+              onClick={() => setShowModal(true)}
+              className="btn-primary text-xs flex items-center gap-1.5 py-2 px-4"
+            >
+              <span>+</span> Create Customer Invoice
+            </button>
+          </div>
+        )}
       </div>
 
       {/* Filter Bar */}
@@ -499,6 +510,7 @@ export default function CustomerInvoicesPage() {
                     <thead className="bg-[var(--badge-bg)] border-b border-[var(--border-color)] text-[var(--text-muted)] font-bold uppercase">
                       <tr>
                         <th className="py-2.5 px-3">Product</th>
+                        <th className="py-2.5 px-3">Analytic Account</th>
                         <th className="py-2.5 px-3 w-20">Qty</th>
                         <th className="py-2.5 px-3 w-28 text-right">Unit Price</th>
                         <th className="py-2.5 px-3 w-24 text-right">Tax (%)</th>
@@ -524,6 +536,20 @@ export default function CustomerInvoicesPage() {
                                 {products.map((p) => (
                                   <option key={p.id} value={p.id}>
                                     {p.name} (₹{p.salesPrice})
+                                  </option>
+                                ))}
+                              </select>
+                            </td>
+                            <td className="p-2">
+                              <select
+                                value={line.analyticId || ""}
+                                onChange={(e) => handleLineChange(idx, "analyticId", e.target.value)}
+                                className="w-full rounded border border-[var(--border-color)] bg-[var(--bg-primary)] p-1.5 text-xs text-[var(--text-main)]"
+                              >
+                                <option value="">-- Default / None --</option>
+                                {analytics.map((a) => (
+                                  <option key={a.id} value={a.id}>
+                                    {a.name}
                                   </option>
                                 ))}
                               </select>

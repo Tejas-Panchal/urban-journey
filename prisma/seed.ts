@@ -469,6 +469,18 @@ async function main() {
     status: "PAID",
   });
 
+  await createDemoSale({
+    soNo: "S00010",
+    invNo: "INV/2026/0009",
+    customer: nimesh,
+    date: "2026-06-25",
+    items: [
+      { product: sofaProd, qty: 1, unitPrice: 20000, analyticId: analyticJourney.id },
+      { product: tableProd, qty: 1, unitPrice: 8000, analyticId: analyticJourney.id },
+    ],
+    status: "PAID",
+  });
+
   await createDemoPurchase({
     poNo: "P00002",
     billNo: "BILL/2026/0002",
@@ -517,6 +529,17 @@ async function main() {
     ],
     status: "PARTIAL",
     payAmount: 50000,
+  });
+
+  await createDemoSale({
+    soNo: "S00011",
+    invNo: "INV/2026/0010",
+    customer: openWood,
+    date: "2026-07-28",
+    items: [
+      { product: deskProd, qty: 3, unitPrice: 18000, analyticId: analyticJourney.id },
+    ],
+    status: "PAID",
   });
 
   await createDemoPurchase({
@@ -569,6 +592,18 @@ async function main() {
     status: "PAID",
   });
 
+  await createDemoSale({
+    soNo: "S00012",
+    invNo: "INV/2026/0011",
+    customer: joeyWills,
+    date: "2026-08-27",
+    items: [
+      { product: fridgeProd, qty: 2, unitPrice: 10000, analyticId: analyticMktg.id },
+      { product: chairProd, qty: 4, unitPrice: 5000, analyticId: analyticMktg.id },
+    ],
+    status: "PAID",
+  });
+
   await createDemoPurchase({
     poNo: "P00006",
     billNo: "BILL/2026/0006",
@@ -606,6 +641,30 @@ async function main() {
     ],
     status: "PARTIAL",
     payAmount: 30000,
+  });
+
+  await createDemoSale({
+    soNo: "S00013",
+    invNo: "INV/2026/0012",
+    customer: nimesh,
+    date: "2026-09-04",
+    items: [
+      { product: sofaProd, qty: 2, unitPrice: 20000, analyticId: analyticJourney.id },
+      { product: chairProd, qty: 2, unitPrice: 5000, analyticId: analyticJourney.id },
+    ],
+    status: "CONFIRMED",
+    payAmount: 0,
+  });
+
+  await createDemoSale({
+    soNo: "S00014",
+    invNo: "INV/2026/0013",
+    customer: openWood,
+    date: "2026-09-05",
+    items: [
+      { product: acProd, qty: 2, unitPrice: 25000, analyticId: analyticOps.id },
+    ],
+    status: "PAID",
   });
 
   await createDemoPurchase({

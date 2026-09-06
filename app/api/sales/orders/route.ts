@@ -12,11 +12,12 @@ export async function GET() {
     where: { soId: { in: orders.map(o => o.id) } },
     select: { id: true, no: true, soId: true, status: true, total: true }
   });
+  const analytics = await db.analytic.findMany({ orderBy: { name: "asc" } });
   const ordersWithInvoice = orders.map(o => ({
     ...o,
     invoice: invoices.find(inv => inv.soId === o.id) || null
   }));
-  return NextResponse.json({ orders: ordersWithInvoice });
+  return NextResponse.json({ orders: ordersWithInvoice, analytics });
 }
 export async function POST(req: Request) {
   const { error } = await requireSession(["ADMIN", "ACCOUNTANT"]);

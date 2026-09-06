@@ -5,11 +5,14 @@ import { postJournal, getAccountIdByName } from "@/lib/accounting";
 import { recomputeAllConfirmedBudgets } from "@/lib/budgets";
 
 export async function GET(_req: Request, ctx: { params: Promise<{ id: string }> }) {
-  const { error } = await requireSession(["ADMIN", "ACCOUNTANT"]);
-  if (error) return error!;
+  const { error, session } = await requireSession(["ADMIN", "ACCOUNTANT", "CONTACT"]);
+  if (error || !session) return error!;
   const { id } = await ctx.params;
   const b = await db.vendorBill.findUnique({ where: { id }, include: { lines: true, payments: true } });
   if (!b) return apiError("Not found", 404);
+  if (session.role === "CONTACT" && session.contactId && b.vendorId !== session.contactId) {
+    return apiError("Forbidden", 403);
+  }
   return NextResponse.json({ bill: b });
 }
 

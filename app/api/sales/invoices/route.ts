@@ -5,14 +5,20 @@ import { customerInvoiceSchema } from "@/lib/validations";
 import { lineSubtotal, lineTaxAmount, nextInvNo } from "@/lib/accounting";
 
 export async function GET() {
-  const { error } = await requireSession(["ADMIN", "ACCOUNTANT"]);
-  if (error) return error!;
-  return NextResponse.json({
-    invoices: await db.customerInvoice.findMany({
-      include: { customer: true, lines: true, payments: true },
-      orderBy: { createdAt: "desc" },
-    }),
+  const { error, session } = await requireSession(["ADMIN", "ACCOUNTANT", "CONTACT"]);
+  if (error || !session) return error!;
+
+  const whereCustomer = session.role === "CONTACT" && session.contactId
+    ? { customerId: session.contactId }
+    : {};
+
+  const invoices = await db.customerInvoice.findMany({
+    where: whereCustomer,
+    include: { customer: true, lines: true, payments: true },
+    orderBy: { createdAt: "desc" },
   });
+  const analytics = session.role === "CONTACT" ? [] : await db.analytic.findMany({ orderBy: { name: "asc" } });
+  return NextResponse.json({ invoices, analytics });
 }
 export async function POST(req: Request) {
   const { error } = await requireSession(["ADMIN", "ACCOUNTANT"]);

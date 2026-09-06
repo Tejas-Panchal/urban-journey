@@ -22,17 +22,33 @@ export function Navbar() {
   const [session, setSession] = useState<UserSession | null>(null);
   const [activeDropdown, setActiveDropdown] = useState<string | null>(null);
 
+  const isContact = session?.user?.role === "CONTACT";
+
   useEffect(() => {
+    const isAuth = ["/login", "/signup", "/forgot"].includes(pathname);
+    if (isAuth) {
+      setSession(null);
+      return;
+    }
     fetch("/api/auth/me")
       .then((res) => (res.ok ? res.json() : null))
-      .then((data) => setSession(data))
+      .then((data) => {
+        setSession(data);
+        if (data?.user?.role === "CONTACT") {
+          const allowed = ["/sales/invoices", "/purchase/bills", "/login", "/signup", "/forgot"];
+          const isAllowed = allowed.some((r) => pathname === r || pathname.startsWith(r));
+          if (!isAllowed) {
+            router.replace("/sales/invoices");
+          }
+        }
+      })
       .catch(() => setSession(null));
-  }, [pathname]);
+  }, [pathname, router]);
 
   const handleLogout = async () => {
     await fetch("/api/auth/logout", { method: "POST" });
     setSession(null);
-    router.push("/login");
+    window.location.href = "/login";
   };
 
   const navDropdowns = [
@@ -155,7 +171,7 @@ export function Navbar() {
       <div className="mx-auto flex max-w-7xl items-center justify-between px-6 py-3">
         {/* Brand Logo & Name */}
         <div className="flex items-center gap-8">
-          <Link href={isAuthPage ? "/login" : "/dashboard"} className="flex items-center gap-3">
+          <Link href={isAuthPage ? "/login" : isContact ? "/sales/invoices" : "/dashboard"} className="flex items-center gap-3">
             <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-[var(--text-main)] text-[var(--bg-primary)] font-black tracking-wider text-sm shadow-sm">
               UJ
             </div>
@@ -166,96 +182,123 @@ export function Navbar() {
             </div>
           </Link>
 
-          {/* Horizontal Navigation Menu with Dropdowns */}
+          {/* Horizontal Navigation Menu */}
           {!isAuthPage && (
             <nav className="hidden md:flex items-center gap-1">
-              <Link
-                href="/dashboard"
-                className={`rounded-md px-3 py-1.5 text-sm font-medium transition-colors ${
-                  pathname === "/dashboard" || pathname === "/"
-                    ? "bg-[var(--badge-bg)] text-[var(--text-main)] font-semibold"
-                    : "text-[var(--text-muted)] hover:text-[var(--text-main)] hover:bg-[var(--badge-bg)]/50"
-                }`}
-              >
-                Dashboard
-              </Link>
-
-              {navDropdowns.map((drop) => {
-                const isExactItemActive = drop.items.some(
-                  (item) => pathname === item.href || (item.href !== "/" && pathname.startsWith(item.href))
-                );
-
-                const isOtherDropdownItemActive = navDropdowns.some(
-                  (otherDrop) =>
-                    otherDrop.label !== drop.label &&
-                    otherDrop.items.some(
-                      (item) => pathname === item.href || (item.href !== "/" && pathname.startsWith(item.href))
-                    )
-                );
-
-                const isActive =
-                  isExactItemActive || (!isOtherDropdownItemActive && pathname.startsWith(drop.prefix));
-                const isOpen = activeDropdown === drop.label;
-                return (
-                  <div
-                    key={drop.label}
-                    className="relative"
-                    onMouseEnter={() => setActiveDropdown(drop.label)}
-                    onMouseLeave={() => setActiveDropdown(null)}
+              {isContact ? (
+                <>
+                  <Link
+                    href="/sales/invoices"
+                    className={`rounded-md px-3 py-1.5 text-sm font-medium transition-colors ${
+                      pathname.startsWith("/sales/invoices")
+                        ? "bg-[var(--badge-bg)] text-[var(--text-main)] font-semibold"
+                        : "text-[var(--text-muted)] hover:text-[var(--text-main)] hover:bg-[var(--badge-bg)]/50"
+                    }`}
                   >
-                    <button
-                      className={`flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm font-medium transition-colors ${
-                        isActive
-                          ? "bg-[var(--badge-bg)] text-[var(--text-main)] font-semibold"
-                          : "text-[var(--text-muted)] hover:text-[var(--text-main)] hover:bg-[var(--badge-bg)]/50"
-                      }`}
-                    >
-                      {drop.label}
-                      <svg
-                        className={`h-3.5 w-3.5 transition-transform duration-200 ${
-                          isOpen ? "rotate-180" : ""
-                        }`}
-                        fill="none"
-                        viewBox="0 0 24 24"
-                        stroke="currentColor"
-                      >
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          strokeWidth={2}
-                          d="M19 9l-7 7-7-7"
-                        />
-                      </svg>
-                    </button>
+                    Customer Invoices
+                  </Link>
+                  <Link
+                    href="/purchase/bills"
+                    className={`rounded-md px-3 py-1.5 text-sm font-medium transition-colors ${
+                      pathname.startsWith("/purchase/bills")
+                        ? "bg-[var(--badge-bg)] text-[var(--text-main)] font-semibold"
+                        : "text-[var(--text-muted)] hover:text-[var(--text-main)] hover:bg-[var(--badge-bg)]/50"
+                    }`}
+                  >
+                    Vendor Bills
+                  </Link>
+                </>
+              ) : (
+                <>
+                  <Link
+                    href="/dashboard"
+                    className={`rounded-md px-3 py-1.5 text-sm font-medium transition-colors ${
+                      pathname === "/dashboard" || pathname === "/"
+                        ? "bg-[var(--badge-bg)] text-[var(--text-main)] font-semibold"
+                        : "text-[var(--text-muted)] hover:text-[var(--text-main)] hover:bg-[var(--badge-bg)]/50"
+                    }`}
+                  >
+                    Dashboard
+                  </Link>
 
-                    {/* Dropdown Card */}
-                    {isOpen && (
-                      <div className="absolute left-0 top-full pt-1.5 w-64 z-50">
-                        <div className="rounded-xl border border-[var(--border-color)] bg-[var(--card-bg)] p-2 shadow-2xl backdrop-blur-lg">
-                          {drop.items.map((item) => (
-                            <Link
-                              key={item.href}
-                              href={item.href}
-                              className={`block rounded-lg p-2.5 transition-colors ${
-                                pathname === item.href
-                                  ? "bg-[var(--badge-bg)] text-[var(--text-main)] font-semibold"
-                                  : "hover:bg-[var(--card-hover)] text-[var(--text-main)]"
-                              }`}
-                            >
-                              <div className="text-xs font-semibold">
-                                {item.label}
-                              </div>
-                              <div className="text-[11px] text-[var(--text-muted)] leading-tight mt-0.5">
-                                {item.desc}
-                              </div>
-                            </Link>
-                          ))}
-                        </div>
+                  {navDropdowns.map((drop) => {
+                    const isExactItemActive = drop.items.some(
+                      (item) => pathname === item.href || (item.href !== "/" && pathname.startsWith(item.href))
+                    );
+
+                    const isOtherDropdownItemActive = navDropdowns.some(
+                      (otherDrop) =>
+                        otherDrop.label !== drop.label &&
+                        otherDrop.items.some(
+                          (item) => pathname === item.href || (item.href !== "/" && pathname.startsWith(item.href))
+                        )
+                    );
+
+                    const isActive =
+                      isExactItemActive || (!isOtherDropdownItemActive && pathname.startsWith(drop.prefix));
+                    const isOpen = activeDropdown === drop.label;
+                    return (
+                      <div
+                        key={drop.label}
+                        className="relative"
+                        onMouseEnter={() => setActiveDropdown(drop.label)}
+                        onMouseLeave={() => setActiveDropdown(null)}
+                      >
+                        <button
+                          className={`flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm font-medium transition-colors ${
+                            isActive
+                              ? "bg-[var(--badge-bg)] text-[var(--text-main)] font-semibold"
+                              : "text-[var(--text-muted)] hover:text-[var(--text-main)] hover:bg-[var(--badge-bg)]/50"
+                          }`}
+                        >
+                          {drop.label}
+                          <svg
+                            className={`h-3.5 w-3.5 transition-transform duration-200 ${
+                              isOpen ? "rotate-180" : ""
+                            }`}
+                            fill="none"
+                            viewBox="0 0 24 24"
+                            stroke="currentColor"
+                          >
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              strokeWidth={2}
+                              d="M19 9l-7 7-7-7"
+                            />
+                          </svg>
+                        </button>
+
+                        {/* Dropdown Card */}
+                        {isOpen && (
+                          <div className="absolute left-0 top-full pt-1.5 w-64 z-50">
+                            <div className="rounded-xl border border-[var(--border-color)] bg-[var(--card-bg)] p-2 shadow-2xl backdrop-blur-lg">
+                              {drop.items.map((item) => (
+                                <Link
+                                  key={item.href}
+                                  href={item.href}
+                                  className={`block rounded-lg p-2.5 transition-colors ${
+                                    pathname === item.href
+                                      ? "bg-[var(--badge-bg)] text-[var(--text-main)] font-semibold"
+                                      : "hover:bg-[var(--card-hover)] text-[var(--text-main)]"
+                                  }`}
+                                >
+                                  <div className="text-xs font-semibold">
+                                    {item.label}
+                                  </div>
+                                  <div className="text-[11px] text-[var(--text-muted)] leading-tight mt-0.5">
+                                    {item.desc}
+                                  </div>
+                                </Link>
+                              ))}
+                            </div>
+                          </div>
+                        )}
                       </div>
-                    )}
-                  </div>
-                );
-              })}
+                    );
+                  })}
+                </>
+              )}
             </nav>
           )}
         </div>
@@ -263,7 +306,7 @@ export function Navbar() {
         {/* Right Action Icons & Profile Badge */}
         <div className="flex items-center gap-3">
           {/* Spotlight Search Command Palette */}
-          {!isAuthPage && <CommandPalette />}
+          {!isAuthPage && !isContact && <CommandPalette />}
 
           {/* Theme Toggle Button */}
           <button
@@ -279,7 +322,7 @@ export function Navbar() {
           </button>
 
           {/* User Profile Info or Auth Links */}
-          {session?.user ? (
+          {session?.user && !isAuthPage ? (
             <div className="flex items-center gap-3 pl-2 border-l border-[var(--border-color)]">
               <div className="text-right">
                 <div className="text-xs font-bold text-[var(--text-main)] leading-none">
