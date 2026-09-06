@@ -34,7 +34,7 @@ export async function GET(req: Request) {
   const vendorBills = await db.vendorBill.findMany({
     where: { status: { in: ["CONFIRMED", "PARTIAL", "PAID"] }, ...billDateFilter },
   });
-  const billExpense = vendorBills.reduce((s, b) => s + b.total, 0);
+  const billExpense = vendorBills.reduce((s, b) => s + b.subtotal, 0);
 
   const saleIncomeLedger = -getAccountBal("Sale Income");
   const totalIncome = Math.max(saleIncomeLedger, invoiceRevenue);
