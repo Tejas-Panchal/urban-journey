@@ -1,8 +1,9 @@
 import { db } from "../lib/db";
 import { hashPassword } from "../lib/auth";
+import { recomputeAllConfirmedBudgets } from "../lib/budgets";
 
 async function main() {
-  console.log("Seeding Urban Journey database with complete demo data...");
+  console.log("Seeding Urban Journey database with 3-month demo data (June - Sept 2026)...");
 
   // 1. Essential Chart of Accounts
   const accounts = [
@@ -53,13 +54,13 @@ async function main() {
     update: {},
     create: { name: "Electronics" },
   });
-  const catOffice = await db.category.upsert({
+  await db.category.upsert({
     where: { name: "Office Supplies" },
     update: {},
     create: { name: "Office Supplies" },
   });
 
-  // 4. Contacts (Including Wireframe Demo Contacts)
+  // 4. Contacts
   const openWood = await db.contact.upsert({
     where: { email: "Openwood21@example.com" },
     update: {},
@@ -87,6 +88,36 @@ async function main() {
       city: "Bengaluru",
       state: "Karnataka",
       pincode: "560001",
+    },
+  });
+
+  const techCorp = await db.contact.upsert({
+    where: { email: "info@techcorp.example.com" },
+    update: {},
+    create: {
+      name: "TechCorp Pvt Ltd",
+      type: "CUSTOMER",
+      email: "info@techcorp.example.com",
+      mobile: "+91 9123456789",
+      street: "Cyber City",
+      city: "Gurugram",
+      state: "Haryana",
+      pincode: "122002",
+    },
+  });
+
+  const nimesh = await db.contact.upsert({
+    where: { email: "nimesh@example.com" },
+    update: {},
+    create: {
+      name: "Nimesh Pathak",
+      type: "CUSTOMER",
+      email: "nimesh@example.com",
+      mobile: "+91 8080080808",
+      street: "Infocity",
+      city: "Gandhinagar",
+      state: "Gujarat",
+      pincode: "382001",
     },
   });
 
@@ -120,80 +151,38 @@ async function main() {
     },
   });
 
-  const nimesh = await db.contact.upsert({
-    where: { email: "nimesh@example.com" },
+  const globalSupplies = await db.contact.upsert({
+    where: { email: "orders@globalsupplies.example.com" },
     update: {},
     create: {
-      name: "Nimesh Pathak",
-      type: "CUSTOMER",
-      email: "nimesh@example.com",
-      mobile: "+91 8080080808",
-      street: "Infocity",
-      city: "Gandhinagar",
-      state: "Gujarat",
-      pincode: "382001",
+      name: "Global Supplies Ltd",
+      type: "VENDOR",
+      email: "orders@globalsupplies.example.com",
+      mobile: "+91 9988776655",
+      street: "Bandra Kurla Complex",
+      city: "Mumbai",
+      state: "Maharashtra",
+      pincode: "400051",
     },
   });
 
-  // 5. Products (Including Wireframe Demo Products)
-  const prods = [
-    {
-      name: "Air Conditioner",
-      type: "GOODS" as const,
-      salesPrice: 25000,
-      cost: 15000,
-      categoryId: catElectronics.id,
-    },
-    {
-      name: "Refrigerator",
-      type: "GOODS" as const,
-      salesPrice: 10000,
-      cost: 7000,
-      categoryId: catElectronics.id,
-    },
-    {
-      name: "Office Chair",
-      type: "GOODS" as const,
-      salesPrice: 5000,
-      cost: 3000,
-      categoryId: catFurniture.id,
-    },
-    {
-      name: "Wooden Table",
-      type: "GOODS" as const,
-      salesPrice: 8000,
-      cost: 5000,
-      categoryId: catFurniture.id,
-    },
-    {
-      name: "Sofa",
-      type: "GOODS" as const,
-      salesPrice: 20000,
-      cost: 12000,
-      categoryId: catFurniture.id,
-    },
-    {
-      name: "Dining Table",
-      type: "GOODS" as const,
-      salesPrice: 15000,
-      cost: 9000,
-      categoryId: catFurniture.id,
-    },
-    {
-      name: "Wooden Chair",
-      type: "GOODS" as const,
-      salesPrice: 3500,
-      cost: 2000,
-      categoryId: catFurniture.id,
-    },
-  ];
-  for (const p of prods) {
-    const ex = await db.product.findFirst({ where: { name: p.name } });
-    if (!ex) await db.product.create({ data: p });
-  }
+  // Helper for Product creation
+  const getOrCreateProduct = async (p: { name: string; type: "GOODS" | "SERVICE"; salesPrice: number; cost: number; categoryId: string }) => {
+    const existing = await db.product.findFirst({ where: { name: p.name } });
+    if (existing) return existing;
+    return db.product.create({ data: p });
+  };
 
-  // 6. Analytic Account
-  const analytic = await db.analytic.upsert({
+  // 5. Products
+  const acProd = await getOrCreateProduct({ name: "Air Conditioner", type: "GOODS", salesPrice: 25000, cost: 15000, categoryId: catElectronics.id });
+  const fridgeProd = await getOrCreateProduct({ name: "Refrigerator", type: "GOODS", salesPrice: 10000, cost: 7000, categoryId: catElectronics.id });
+  const chairProd = await getOrCreateProduct({ name: "Office Chair", type: "GOODS", salesPrice: 5000, cost: 3000, categoryId: catFurniture.id });
+  const tableProd = await getOrCreateProduct({ name: "Wooden Table", type: "GOODS", salesPrice: 8000, cost: 5000, categoryId: catFurniture.id });
+  const sofaProd = await getOrCreateProduct({ name: "Sofa", type: "GOODS", salesPrice: 20000, cost: 12000, categoryId: catFurniture.id });
+  const deskProd = await getOrCreateProduct({ name: "Ergonomic Desk", type: "GOODS", salesPrice: 18000, cost: 11000, categoryId: catFurniture.id });
+
+  // 6. Analytic Accounts
+  const analyticJourney = await db.analytic.upsert({
     where: { name: "Journey Project" },
     update: {},
     create: { name: "Journey Project", type: "EXPENSE" },
@@ -205,216 +194,443 @@ async function main() {
     create: { name: "IT Infrastructure", type: "EXPENSE" },
   });
 
-  // 7. System Users (Admin, Accountant, Contact User)
+  const analyticMktg = await db.analytic.upsert({
+    where: { name: "Marketing & Sales" },
+    update: {},
+    create: { name: "Marketing & Sales", type: "EXPENSE" },
+  });
+
+  const analyticOps = await db.analytic.upsert({
+    where: { name: "Operations & Logistics" },
+    update: {},
+    create: { name: "Operations & Logistics", type: "EXPENSE" },
+  });
+
+  // 7. System Users
   const adminHash = await hashPassword("admin123");
   await db.user.upsert({
     where: { loginId: "admin01" },
     update: {},
-    create: {
-      loginId: "admin01",
-      email: "admin@urban.example.com",
-      passwordHash: adminHash,
-      role: "ADMIN",
-    },
+    create: { loginId: "admin01", email: "admin@urban.example.com", passwordHash: adminHash, role: "ADMIN" },
   });
 
   const acctHash = await hashPassword("account123");
   await db.user.upsert({
     where: { loginId: "acct001" },
     update: {},
-    create: {
-      loginId: "acct001",
-      email: "acct@urban.example.com",
-      passwordHash: acctHash,
-      role: "ACCOUNTANT",
-    },
+    create: { loginId: "acct001", email: "acct@urban.example.com", passwordHash: acctHash, role: "ACCOUNTANT" },
   });
 
   const contactUserHash = await hashPassword("user1234!");
   await db.user.upsert({
     where: { loginId: "nimesh01" },
     update: {},
-    create: {
-      loginId: "nimesh01",
-      email: "nimesh@example.com",
-      passwordHash: contactUserHash,
-      role: "CONTACT",
-      contactId: nimesh.id,
-    },
+    create: { loginId: "nimesh01", email: "nimesh@example.com", passwordHash: contactUserHash, role: "CONTACT", contactId: nimesh.id },
   });
 
-  // 8. Budget
-  const b = await db.budget.findFirst({ where: { name: "Q1 2026 Budget" } });
-  if (!b) {
+  // 8. Budgets (Q2 & Q3 2026)
+  const q2Budget = await db.budget.findFirst({ where: { name: "Q2 2026 Budget" } });
+  if (!q2Budget) {
     await db.budget.create({
       data: {
-        name: "Q1 2026 Budget",
-        start: new Date("2026-01-01"),
-        end: new Date("2026-03-31"),
+        name: "Q2 2026 Budget",
+        start: new Date("2026-04-01"),
+        end: new Date("2026-06-30"),
         status: "CONFIRMED",
         lines: {
           create: [
-            { analyticId: analytic.id, type: "EXPENSE", committed: 250000 },
-            { analyticId: analyticIT.id, type: "EXPENSE", committed: 150000 },
+            { analyticId: analyticJourney.id, type: "EXPENSE", committed: 300000 },
+            { analyticId: analyticIT.id, type: "EXPENSE", committed: 200000 },
           ],
         },
       },
     });
   }
 
-  // 9. Demo Sales Orders
-  const existingSo = await db.salesOrder.findFirst({ where: { no: "S00001" } });
-  if (!existingSo) {
-    const acProd = await db.product.findFirst({ where: { name: "Air Conditioner" } });
-    const chairProd = await db.product.findFirst({ where: { name: "Office Chair" } });
-
-    if (acProd && chairProd) {
-      await db.salesOrder.create({
-        data: {
-          no: "S00001",
-          date: new Date("2026-02-15"),
-          customerId: openWood.id,
-          status: "CONFIRMED",
-          subtotal: 30000,
-          taxAmount: 5400,
-          total: 35400,
-          lines: {
-            create: [
-              { productId: acProd.id, qty: 1, unitPrice: 25000, tax: 18, total: 29500 },
-              { productId: chairProd.id, qty: 1, unitPrice: 5000, tax: 18, total: 5900 },
-            ],
-          },
+  const q3Budget = await db.budget.findFirst({ where: { name: "Q3 2026 Budget" } });
+  if (!q3Budget) {
+    await db.budget.create({
+      data: {
+        name: "Q3 2026 Budget",
+        start: new Date("2026-07-01"),
+        end: new Date("2026-09-30"),
+        status: "CONFIRMED",
+        lines: {
+          create: [
+            { analyticId: analyticJourney.id, type: "EXPENSE", committed: 350000 },
+            { analyticId: analyticIT.id, type: "EXPENSE", committed: 250000 },
+            { analyticId: analyticMktg.id, type: "EXPENSE", committed: 150000 },
+            { analyticId: analyticOps.id, type: "EXPENSE", committed: 180000 },
+          ],
         },
-      });
+      },
+    });
+  }
 
+  // Helper helper to create Sales Order + Invoice + Payment
+  const createDemoSale = async (opts: {
+    soNo: string;
+    invNo: string;
+    customer: any;
+    date: string;
+    items: { product: any; qty: number; unitPrice: number; tax?: number; analyticId?: string }[];
+    status?: "PAID" | "PARTIAL" | "CONFIRMED";
+    payAmount?: number;
+  }) => {
+    const saleDate = new Date(opts.date);
+    const dueDate = new Date(saleDate.getTime() + 30 * 864e5);
+    const subtotal = opts.items.reduce((s, i) => s + i.qty * i.unitPrice, 0);
+    const taxTotal = opts.items.reduce((s, i) => s + i.qty * i.unitPrice * ((i.tax || 18) / 100), 0);
+    const grandTotal = Math.round((subtotal + taxTotal) * 100) / 100;
+
+    // 1. Sales Order
+    const existingSo = await db.salesOrder.findFirst({ where: { no: opts.soNo } });
+    if (!existingSo) {
       await db.salesOrder.create({
         data: {
-          no: "S00002",
-          date: new Date("2026-02-20"),
-          customerId: joeyWills.id,
-          status: "QUOTATION",
-          subtotal: 10000,
-          taxAmount: 1800,
-          total: 11800,
+          no: opts.soNo,
+          customerId: opts.customer.id,
+          date: saleDate,
+          status: "CONFIRMED",
+          subtotal,
+          taxTotal,
+          total: grandTotal,
           lines: {
-            create: [
-              { productId: chairProd.id, qty: 2, unitPrice: 5000, tax: 18, total: 11800 },
-            ],
+            create: opts.items.map((i) => ({
+              productId: i.product.id,
+              analyticId: i.analyticId || null,
+              qty: i.qty,
+              unitPrice: i.unitPrice,
+              tax: i.tax || 18,
+              total: Math.round(i.qty * i.unitPrice * (1 + (i.tax || 18) / 100) * 100) / 100,
+            })),
           },
         },
       });
     }
-  }
 
-  // 10. Demo Customer Invoices & Payment
-  const existingInv = await db.customerInvoice.findFirst({ where: { no: "INV/2026/0001" } });
-  if (!existingInv) {
-    const acProd = await db.product.findFirst({ where: { name: "Air Conditioner" } });
-    if (acProd) {
+    // 2. Customer Invoice
+    const existingInv = await db.customerInvoice.findFirst({ where: { no: opts.invNo } });
+    if (!existingInv) {
+      const paid = opts.status === "PAID" ? grandTotal : opts.payAmount || 0;
+      const due = Math.max(0, Math.round((grandTotal - paid) * 100) / 100);
+      const invStatus = due <= 0.01 ? "PAID" : paid > 0 ? "PARTIAL" : "CONFIRMED";
+
       const inv = await db.customerInvoice.create({
         data: {
-          no: "INV/2026/0001",
-          invDate: new Date("2026-02-10"),
-          dueDate: new Date("2026-03-10"),
-          customerId: openWood.id,
-          status: "CONFIRMED",
-          subtotal: 25000,
-          taxAmount: 4500,
-          total: 29500,
-          paid: 10000,
-          due: 19500,
+          no: opts.invNo,
+          invRef: `REF-${opts.invNo.replace(/\//g, "-")}`,
+          customerId: opts.customer.id,
+          invDate: saleDate,
+          dueDate,
+          status: invStatus,
+          subtotal,
+          taxTotal,
+          total: grandTotal,
+          paid,
+          due,
           lines: {
-            create: [
-              { productId: acProd.id, qty: 1, unitPrice: 25000, tax: 18, total: 29500 },
-            ],
+            create: opts.items.map((i) => ({
+              productId: i.product.id,
+              analyticId: i.analyticId || null,
+              qty: i.qty,
+              unitPrice: i.unitPrice,
+              tax: i.tax || 18,
+              total: Math.round(i.qty * i.unitPrice * (1 + (i.tax || 18) / 100) * 100) / 100,
+            })),
           },
         },
       });
 
-      const existingPay = await db.payment.findFirst({ where: { invoiceId: inv.id } });
-      if (!existingPay) {
+      // 3. Payment
+      if (paid > 0) {
+        const payDate = new Date(saleDate.getTime() + 3 * 864e5);
         await db.payment.create({
           data: {
-            date: new Date("2026-02-12"),
-            partnerId: openWood.id,
+            partnerId: opts.customer.id,
             invoiceId: inv.id,
-            amount: 10000,
+            amount: paid,
+            date: payDate,
             via: "BANK",
+            note: `Payment received for ${inv.no}`,
           },
         });
       }
     }
-  }
+  };
 
-  // 11. Demo Purchase Orders
-  const existingPo = await db.purchaseOrder.findFirst({ where: { no: "P00001" } });
-  if (!existingPo) {
-    const sofaProd = await db.product.findFirst({ where: { name: "Sofa" } });
-    if (sofaProd) {
+  // Helper to create Purchase Order + Vendor Bill + Payment
+  const createDemoPurchase = async (opts: {
+    poNo: string;
+    billNo: string;
+    vendor: any;
+    date: string;
+    items: { product: any; qty: number; unitPrice: number; analyticId?: string }[];
+    status?: "PAID" | "PARTIAL" | "CONFIRMED";
+    payAmount?: number;
+  }) => {
+    const billDate = new Date(opts.date);
+    const dueDate = new Date(billDate.getTime() + 30 * 864e5);
+    const subtotal = opts.items.reduce((s, i) => s + i.qty * i.unitPrice, 0);
+
+    // 1. Purchase Order
+    const existingPo = await db.purchaseOrder.findFirst({ where: { no: opts.poNo } });
+    if (!existingPo) {
       await db.purchaseOrder.create({
         data: {
-          no: "P00001",
-          date: new Date("2026-02-01"),
-          vendorId: azure.id,
+          no: opts.poNo,
+          vendorId: opts.vendor.id,
+          date: billDate,
           status: "CONFIRMED",
-          subtotal: 24000,
-          total: 24000,
+          subtotal,
           lines: {
-            create: [
-              { productId: sofaProd.id, qty: 2, unitPrice: 12000, total: 24000 },
-            ],
+            create: opts.items.map((i) => ({
+              productId: i.product.id,
+              analyticId: i.analyticId || null,
+              qty: i.qty,
+              unitPrice: i.unitPrice,
+              total: i.qty * i.unitPrice,
+            })),
           },
         },
       });
     }
-  }
 
-  // 12. Demo Vendor Bills
-  const existingBill = await db.vendorBill.findFirst({ where: { no: "BILL/2026/0001" } });
-  if (!existingBill) {
-    const tableProd = await db.product.findFirst({ where: { name: "Wooden Table" } });
-    if (tableProd) {
+    // 2. Vendor Bill
+    const existingBill = await db.vendorBill.findFirst({ where: { no: opts.billNo } });
+    if (!existingBill) {
+      const paid = opts.status === "PAID" ? subtotal : opts.payAmount || 0;
+      const due = Math.max(0, Math.round((subtotal - paid) * 100) / 100);
+      const billStatus = due <= 0.01 ? "PAID" : paid > 0 ? "PARTIAL" : "CONFIRMED";
+
       const bill = await db.vendorBill.create({
         data: {
-          no: "BILL/2026/0001",
-          billRef: "REF-BILL-001",
-          billDate: new Date("2026-02-05"),
-          dueDate: new Date("2026-03-05"),
-          vendorId: azure.id,
-          status: "PAID",
-          subtotal: 11800,
-          paid: 11800,
-          due: 0,
+          no: opts.billNo,
+          billRef: `REF-${opts.billNo.replace(/\//g, "-")}`,
+          vendorId: opts.vendor.id,
+          billDate,
+          dueDate,
+          status: billStatus,
+          subtotal,
+          paid,
+          due,
           lines: {
-            create: [
-              { productId: tableProd.id, qty: 2, unitPrice: 5000, total: 10000 },
-            ],
+            create: opts.items.map((i) => ({
+              productId: i.product.id,
+              analyticId: i.analyticId || null,
+              qty: i.qty,
+              unitPrice: i.unitPrice,
+              total: i.qty * i.unitPrice,
+            })),
           },
         },
       });
 
-      const existingBillPay = await db.payment.findFirst({ where: { billId: bill.id } });
-      if (!existingBillPay) {
+      // 3. Payment
+      if (paid > 0) {
+        const payDate = new Date(billDate.getTime() + 4 * 864e5);
         await db.payment.create({
           data: {
-            date: new Date("2026-02-08"),
-            partnerId: azure.id,
+            partnerId: opts.vendor.id,
             billId: bill.id,
-            amount: 11800,
+            amount: paid,
+            date: payDate,
             via: "BANK",
+            note: `Payment made for bill ${bill.no}`,
           },
         });
       }
     }
-  }
+  };
 
-  console.log("Database seeded successfully!", {
-    contacts: ["Open Wood", "Joey Wills", "Azure Journey", "Rahul Sharma", "Nimesh Pathak"],
-    products: ["Air Conditioner", "Refrigerator", "Office Chair", "Wooden Table", "Sofa"],
-    salesOrders: ["S00001", "S00002"],
-    customerInvoices: ["INV/2026/0001"],
-    purchaseOrders: ["P00001"],
-    vendorBills: ["BILL/2026/0001"],
+  // --- JUNE 2026 DEMO TRANSACTIONS ---
+  console.log("Generating June 2026 transactions...");
+  await createDemoSale({
+    soNo: "S00003",
+    invNo: "INV/2026/0002",
+    customer: openWood,
+    date: "2026-06-05",
+    items: [
+      { product: acProd, qty: 2, unitPrice: 25000, analyticId: analyticJourney.id },
+      { product: chairProd, qty: 4, unitPrice: 5000, analyticId: analyticJourney.id },
+    ],
+    status: "PAID",
+  });
+
+  await createDemoSale({
+    soNo: "S00004",
+    invNo: "INV/2026/0003",
+    customer: techCorp,
+    date: "2026-06-18",
+    items: [
+      { product: deskProd, qty: 5, unitPrice: 18000, analyticId: analyticIT.id },
+      { product: chairProd, qty: 5, unitPrice: 5000, analyticId: analyticIT.id },
+    ],
+    status: "PAID",
+  });
+
+  await createDemoPurchase({
+    poNo: "P00002",
+    billNo: "BILL/2026/0002",
+    vendor: azure,
+    date: "2026-06-02",
+    items: [
+      { product: acProd, qty: 3, unitPrice: 15000, analyticId: analyticJourney.id },
+    ],
+    status: "PAID",
+  });
+
+  await createDemoPurchase({
+    poNo: "P00003",
+    billNo: "BILL/2026/0003",
+    vendor: globalSupplies,
+    date: "2026-06-20",
+    items: [
+      { product: deskProd, qty: 6, unitPrice: 11000, analyticId: analyticIT.id },
+      { product: chairProd, qty: 10, unitPrice: 3000, analyticId: analyticIT.id },
+    ],
+    status: "PAID",
+  });
+
+  // --- JULY 2026 DEMO TRANSACTIONS ---
+  console.log("Generating July 2026 transactions...");
+  await createDemoSale({
+    soNo: "S00005",
+    invNo: "INV/2026/0004",
+    customer: joeyWills,
+    date: "2026-07-08",
+    items: [
+      { product: sofaProd, qty: 2, unitPrice: 20000, analyticId: analyticJourney.id },
+      { product: tableProd, qty: 1, unitPrice: 8000, analyticId: analyticJourney.id },
+    ],
+    status: "PAID",
+  });
+
+  await createDemoSale({
+    soNo: "S00006",
+    invNo: "INV/2026/0005",
+    customer: techCorp,
+    date: "2026-07-22",
+    items: [
+      { product: acProd, qty: 3, unitPrice: 25000, analyticId: analyticIT.id },
+      { product: fridgeProd, qty: 2, unitPrice: 10000, analyticId: analyticOps.id },
+    ],
+    status: "PARTIAL",
+    payAmount: 50000,
+  });
+
+  await createDemoPurchase({
+    poNo: "P00004",
+    billNo: "BILL/2026/0004",
+    vendor: rahul,
+    date: "2026-07-04",
+    items: [
+      { product: sofaProd, qty: 3, unitPrice: 12000, analyticId: analyticJourney.id },
+      { product: tableProd, qty: 2, unitPrice: 5000, analyticId: analyticJourney.id },
+    ],
+    status: "PAID",
+  });
+
+  await createDemoPurchase({
+    poNo: "P00005",
+    billNo: "BILL/2026/0005",
+    vendor: globalSupplies,
+    date: "2026-07-15",
+    items: [
+      { product: acProd, qty: 4, unitPrice: 15000, analyticId: analyticIT.id },
+      { product: chairProd, qty: 15, unitPrice: 3000, analyticId: analyticMktg.id },
+    ],
+    status: "PAID",
+  });
+
+  // --- AUGUST 2026 DEMO TRANSACTIONS ---
+  console.log("Generating August 2026 transactions...");
+  await createDemoSale({
+    soNo: "S00007",
+    invNo: "INV/2026/0006",
+    customer: nimesh,
+    date: "2026-08-04",
+    items: [
+      { product: deskProd, qty: 2, unitPrice: 18000, analyticId: analyticJourney.id },
+      { product: chairProd, qty: 2, unitPrice: 5000, analyticId: analyticJourney.id },
+    ],
+    status: "PAID",
+  });
+
+  await createDemoSale({
+    soNo: "S00008",
+    invNo: "INV/2026/0007",
+    customer: openWood,
+    date: "2026-08-19",
+    items: [
+      { product: acProd, qty: 2, unitPrice: 25000, analyticId: analyticOps.id },
+      { product: sofaProd, qty: 1, unitPrice: 20000, analyticId: analyticOps.id },
+    ],
+    status: "PAID",
+  });
+
+  await createDemoPurchase({
+    poNo: "P00006",
+    billNo: "BILL/2026/0006",
+    vendor: azure,
+    date: "2026-08-01",
+    items: [
+      { product: deskProd, qty: 4, unitPrice: 11000, analyticId: analyticJourney.id },
+      { product: chairProd, qty: 8, unitPrice: 3000, analyticId: analyticJourney.id },
+    ],
+    status: "PAID",
+  });
+
+  await createDemoPurchase({
+    poNo: "P00007",
+    billNo: "BILL/2026/0007",
+    vendor: rahul,
+    date: "2026-08-14",
+    items: [
+      { product: acProd, qty: 3, unitPrice: 15000, analyticId: analyticOps.id },
+      { product: fridgeProd, qty: 4, unitPrice: 7000, analyticId: analyticMktg.id },
+    ],
+    status: "PAID",
+  });
+
+  // --- SEPTEMBER 2026 DEMO TRANSACTIONS ---
+  console.log("Generating September 2026 transactions...");
+  await createDemoSale({
+    soNo: "S00009",
+    invNo: "INV/2026/0008",
+    customer: techCorp,
+    date: "2026-09-02",
+    items: [
+      { product: acProd, qty: 1, unitPrice: 25000, analyticId: analyticIT.id },
+      { product: deskProd, qty: 2, unitPrice: 18000, analyticId: analyticIT.id },
+    ],
+    status: "PARTIAL",
+    payAmount: 30000,
+  });
+
+  await createDemoPurchase({
+    poNo: "P00008",
+    billNo: "BILL/2026/0008",
+    vendor: globalSupplies,
+    date: "2026-09-03",
+    items: [
+      { product: acProd, qty: 2, unitPrice: 15000, analyticId: analyticIT.id },
+      { product: sofaProd, qty: 2, unitPrice: 12000, analyticId: analyticMktg.id },
+    ],
+    status: "PAID",
+  });
+
+  // Recompute budgets
+  console.log("Recomputing all confirmed budget lines...");
+  await recomputeAllConfirmedBudgets();
+
+  console.log("Database seeded successfully with 3-month demo data!", {
+    monthsCovered: ["June 2026", "July 2026", "August 2026", "September 2026"],
+    contacts: ["Open Wood", "Joey Wills", "Azure Journey", "Rahul Sharma", "Nimesh Pathak", "TechCorp Pvt Ltd", "Global Supplies Ltd"],
+    products: ["Air Conditioner", "Refrigerator", "Office Chair", "Wooden Table", "Sofa", "Ergonomic Desk"],
+    budgets: ["Q1 2026 Budget", "Q2 2026 Budget", "Q3 2026 Budget"],
+    salesOrdersCount: 9,
+    vendorBillsCount: 8,
     admin: "admin01 / admin123",
     accountant: "acct001 / account123",
     customerUser: "nimesh01 / user1234!",

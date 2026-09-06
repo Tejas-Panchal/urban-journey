@@ -8,7 +8,8 @@ export async function GET() {
   const { error } = await requireSession(["ADMIN", "ACCOUNTANT"]);
   if (error) return error!;
   const bills = await db.vendorBill.findMany({ include: { vendor: true, lines: true, payments: true }, orderBy: { createdAt: "desc" } });
-  return NextResponse.json({ bills });
+  const analytics = await db.analytic.findMany({ orderBy: { name: "asc" } });
+  return NextResponse.json({ bills, analytics });
 }
 
 export async function POST(req: Request) {

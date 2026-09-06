@@ -3,6 +3,7 @@ import { db } from "@/lib/db";
 import { requireSession, apiError } from "@/lib/api";
 import { paymentSchema } from "@/lib/validations";
 import { postJournal, getAccountIdByName } from "@/lib/accounting";
+import { recomputeAllConfirmedBudgets } from "@/lib/budgets";
 
 export async function GET() {
   const { error, session } = await requireSession(["ADMIN", "ACCOUNTANT", "CONTACT"]);
@@ -83,6 +84,7 @@ export async function POST(req: Request) {
       await tx.vendorBill.update({ where: { id: billId }, data: { paid, due, status: due <= 0.01 ? "PAID" : "PARTIAL" } });
       await tx.journalEntry.update({ where: { id: entry.id }, data: { sourceId: billId } });
     });
+    await recomputeAllConfirmedBudgets().catch(() => null);
     return NextResponse.json({ ok: true }, { status: 201 });
   } else {
     const inv = await db.customerInvoice.findUnique({ where: { id: invoiceId! } });
@@ -107,6 +109,7 @@ export async function POST(req: Request) {
       await tx.customerInvoice.update({ where: { id: invoiceId! }, data: { paid, due, status: due <= 0.01 ? "PAID" : "PARTIAL" } });
       await tx.journalEntry.update({ where: { id: entry.id }, data: { sourceId: invoiceId! } });
     });
+    await recomputeAllConfirmedBudgets().catch(() => null);
     return NextResponse.json({ ok: true }, { status: 201 });
   }
 }

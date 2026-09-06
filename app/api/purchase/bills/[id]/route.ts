@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { requireSession, apiError } from "@/lib/api";
 import { postJournal, getAccountIdByName } from "@/lib/accounting";
+import { recomputeAllConfirmedBudgets } from "@/lib/budgets";
 
 export async function GET(_req: Request, ctx: { params: Promise<{ id: string }> }) {
   const { error } = await requireSession(["ADMIN", "ACCOUNTANT"]);
@@ -25,14 +26,22 @@ export async function POST(req: Request, ctx: { params: Promise<{ id: string }> 
     await tx.vendorBill.update({ where: { id }, data: { status: "CONFIRMED" } });
     const purchaseId = await getAccountIdByName(tx, "Purchase Expense");
     const creditorId = await getAccountIdByName(tx, "Creditors");
+    const lineEntries = bill.lines.map((l) => ({
+      accountId: purchaseId,
+      partnerId: bill.vendorId,
+      analyticId: l.analyticId,
+      debit: l.total,
+      credit: 0,
+    }));
     await postJournal(tx, {
       journalType: "PURCHASE",
       date: bill.billDate, reference: bill.no, sourceType: "VendorBill", sourceId: bill.id,
       lines: [
-        { accountId: purchaseId, partnerId: bill.vendorId, debit: bill.subtotal, credit: 0 },
+        ...lineEntries,
         { accountId: creditorId, partnerId: bill.vendorId, debit: 0, credit: bill.subtotal },
       ],
     });
   });
+  await recomputeAllConfirmedBudgets().catch(() => null);
   return NextResponse.json({ ok: true });
 }

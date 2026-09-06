@@ -740,27 +740,60 @@ export async function generate_budget_report(tx: any, budgetId: string) {
   let totalCommitted = 0;
   let totalAchieved = 0;
 
+  const firstAnalytic = await tx.analytic.findFirst({ orderBy: { name: "asc" } });
+
   for (const bLine of budget.lines) {
     const targetAnalyticId = bLine.analyticId;
+    const isFallback = firstAnalytic && firstAnalytic.id === targetAnalyticId;
+
+    let docTotal = 0;
+    if (bLine.type === "EXPENSE") {
+      const billLines = await tx.vendorBillLine.findMany({
+        where: {
+          OR: [
+            { analyticId: targetAnalyticId },
+            ...(isFallback ? [{ analyticId: null }] : []),
+          ],
+          bill: { status: { in: ["CONFIRMED", "PARTIAL", "PAID"] } },
+        },
+      });
+      docTotal = billLines.reduce((s: number, l: any) => s + l.total, 0);
+    } else {
+      const invLines = await tx.customerInvoiceLine.findMany({
+        where: {
+          OR: [
+            { analyticId: targetAnalyticId },
+            ...(isFallback ? [{ analyticId: null }] : []),
+          ],
+          invoice: { status: { in: ["CONFIRMED", "PARTIAL", "PAID"] } },
+        },
+      });
+      docTotal = invLines.reduce((s: number, l: any) => s + l.total, 0);
+    }
 
     const journalLines = await tx.journalLine.findMany({
       where: {
         OR: [
           { analyticId: targetAnalyticId },
           { analyticAccountId: targetAnalyticId },
+          ...(isFallback ? [{ analyticId: null }, { analyticAccountId: null }] : []),
         ],
-        entry: { status: "POSTED" },
+        entry: {
+          status: "POSTED",
+          sourceType: { notIn: ["VendorBill", "CustomerInvoice"] },
+        },
       },
     });
 
-    const actualAchieved = journalLines.reduce((sum: number, l: any) => {
+    const journalTotal = journalLines.reduce((sum: number, l: any) => {
       if (bLine.type === "EXPENSE") {
-        return sum + (l.debit - l.credit);
+        return sum + Math.max(0, l.debit - l.credit);
       } else {
-        return sum + (l.credit - l.debit);
+        return sum + Math.max(0, l.credit - l.debit);
       }
     }, 0);
 
+    const actualAchieved = docTotal + journalTotal;
     const roundedAchieved = round2(actualAchieved);
     const variance = round2(bLine.committed - roundedAchieved);
     const variancePercent =

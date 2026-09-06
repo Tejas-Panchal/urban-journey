@@ -5,6 +5,7 @@ import Modal from "@/components/Modal";
 
 interface LineItem {
   productId: string;
+  analyticId?: string;
   qty: number;
   unitPrice: number;
   tax: number;
@@ -14,6 +15,7 @@ export default function VendorBillsPage() {
   const [bills, setBills] = useState<any[]>([]);
   const [contacts, setContacts] = useState<any[]>([]);
   const [products, setProducts] = useState<any[]>([]);
+  const [analytics, setAnalytics] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [q, setQ] = useState("");
   const [statusFilter, setStatusFilter] = useState("ALL");
@@ -32,7 +34,7 @@ export default function VendorBillsPage() {
     new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split("T")[0],
   );
   const [lines, setLines] = useState<LineItem[]>([
-    { productId: "", qty: 1, unitPrice: 0, tax: 0 },
+    { productId: "", analyticId: "", qty: 1, unitPrice: 0, tax: 0 },
   ]);
   const [errorMsg, setErrorMsg] = useState("");
   const [saving, setSaving] = useState(false);
@@ -50,7 +52,7 @@ export default function VendorBillsPage() {
       const [billRes, contactRes, prodRes] = await Promise.all([
         fetch("/api/purchase/bills")
           .then((r) => r.json())
-          .catch(() => ({ bills: [] })),
+          .catch(() => ({ bills: [], analytics: [] })),
         fetch("/api/contacts")
           .then((r) => r.json())
           .catch(() => ({ contacts: [] })),
@@ -59,6 +61,7 @@ export default function VendorBillsPage() {
           .catch(() => ({ products: [] })),
       ]);
       setBills(billRes.bills || []);
+      setAnalytics(billRes.analytics || []);
       setContacts(contactRes.contacts || []);
       setProducts(prodRes.products || []);
     } catch (err) {
@@ -73,7 +76,7 @@ export default function VendorBillsPage() {
   }, []);
 
   const handleAddLine = () => {
-    setLines([...lines, { productId: "", qty: 1, unitPrice: 0, tax: 0 }]);
+    setLines([...lines, { productId: "", analyticId: analytics[0]?.id || "", qty: 1, unitPrice: 0, tax: 0 }]);
   };
 
   const handleRemoveLine = (idx: number) => {
@@ -90,6 +93,8 @@ export default function VendorBillsPage() {
       if (selectedProd) {
         next[idx].unitPrice = selectedProd.cost || 0;
       }
+    } else if (field === "analyticId") {
+      next[idx].analyticId = val;
     } else {
       (next[idx] as any)[field] = Number(val);
     }
@@ -547,6 +552,7 @@ export default function VendorBillsPage() {
                     <thead className="bg-[var(--badge-bg)] border-b border-[var(--border-color)] text-[var(--text-muted)] font-bold uppercase">
                       <tr>
                         <th className="py-2.5 px-3">Product</th>
+                        <th className="py-2.5 px-3">Analytic Account</th>
                         <th className="py-2.5 px-3 w-20">Qty</th>
                         <th className="py-2.5 px-3 w-28 text-right">
                           Cost Price
@@ -582,6 +588,26 @@ export default function VendorBillsPage() {
                                 {products.map((p) => (
                                   <option key={p.id} value={p.id}>
                                     {p.name} (Cost: ₹{p.cost})
+                                  </option>
+                                ))}
+                              </select>
+                            </td>
+                            <td className="p-2">
+                              <select
+                                value={line.analyticId || ""}
+                                onChange={(e) =>
+                                  handleLineChange(
+                                    idx,
+                                    "analyticId",
+                                    e.target.value,
+                                  )
+                                }
+                                className="w-full rounded border border-[var(--border-color)] bg-[var(--bg-primary)] p-1.5 text-xs text-[var(--text-main)]"
+                              >
+                                <option value="">-- Default / None --</option>
+                                {analytics.map((a) => (
+                                  <option key={a.id} value={a.id}>
+                                    {a.name}
                                   </option>
                                 ))}
                               </select>

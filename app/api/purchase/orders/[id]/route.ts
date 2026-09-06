@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { requireSession, apiError } from "@/lib/api";
 import { lineTotal, nextBillNo } from "@/lib/accounting";
+import { recomputeAllConfirmedBudgets } from "@/lib/budgets";
 
 export async function POST(req: Request, ctx: { params: Promise<{ id: string }> }) {
   const { error } = await requireSession(["ADMIN", "ACCOUNTANT"]);
@@ -25,6 +26,7 @@ export async function POST(req: Request, ctx: { params: Promise<{ id: string }> 
         include: { lines: true },
       });
     });
+    await recomputeAllConfirmedBudgets().catch(() => null);
     return NextResponse.json({ bill }, { status: 201 });
   }
   return apiError("Unknown action", 400);
